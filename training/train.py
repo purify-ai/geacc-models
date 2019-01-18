@@ -43,15 +43,15 @@ print('TensorBoard events:', tensorboard_logs)
 
 #%%
 ### Prepare images for training
-img_generator = ImageDataGenerator(
-    rotation_range=23,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    horizontal_flip=True,
-    preprocessing_function=preprocess_input)
-
 print('Train image generator')
-train_img_generator = img_generator.flow_from_directory(
+img_generator_augment = ImageDataGenerator(
+                        rotation_range=23,
+                        width_shift_range=0.2,
+                        height_shift_range=0.2,
+                        horizontal_flip=True,
+                        preprocessing_function=preprocess_input)
+
+train_img_generator = img_generator_augment.flow_from_directory(
                         train_dir,
                         target_size = (img_size, img_size),
                         batch_size = batch_size,
@@ -60,6 +60,8 @@ train_img_generator = img_generator.flow_from_directory(
                         shuffle = True)
 
 print('Test image generator')
+img_generator = ImageDataGenerator(preprocessing_function=preprocess_input)
+
 test_img_generator = img_generator.flow_from_directory(
                         test_dir,
                         target_size = (img_size, img_size),
