@@ -1,43 +1,37 @@
-#    Copyright 2019 Purify Foundation
+# Copyright 2019 Purify Foundation
 #
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#        http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # Evaluate GACC trained model
-
+#%%
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 from keras import layers, models, callbacks, backend
 from keras.optimizers import Adam
 from keras.applications.mobilenetv2 import MobileNetV2, preprocess_input
 from keras.preprocessing.image import ImageDataGenerator
 from collections import Counter
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 ### Hyperparameters
-output_classes = 2
-learning_rate = 4e-5  #0.00004
 img_size = 224 # img width and height
-batch_size = 128
-epochs = 90
-resume_model = False
-trainable_layers = 30 # number of trainable layers at the top of the model; all other bottom layers will be frozen
 
-train_dir = "../training_data/train"
-test_dir  = "../training_data/validate"
+model_path = '../models/PurifyAI_GACC_MobileNetV2_224.h5'
+output_path = '../data/PurifyAI_GACC_MobileNetV2_224.csv'
 
-output_name = "PurifyAI_GACC_MobileNetV2_{dim_img}_lr{lr}bs{bs}ep{ep}tl{tl}".format(dim_img=img_size, lr=learning_rate, bs=batch_size, ep=epochs, tl=trainable_layers)
+test_dir  = "../data/training_data/validate"
 
 def draw_confusion_matrix(confusion_matrix, class_names, figsize = (10,7), fontsize=14):
     """Prints a confusion matrix, as returned by sklearn.metrics.confusion_matrix, as a heatmap.
@@ -74,10 +68,9 @@ def draw_confusion_matrix(confusion_matrix, class_names, figsize = (10,7), fonts
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
 
-
 #%%
 ### Load model
-model = models.load_model('../models/PurifyAI_GACC_MobileNetV2_224.h5')
+model = models.load_model(model_path)
 
 #%%
 ### Load test images
@@ -86,7 +79,7 @@ img_generator = ImageDataGenerator(preprocessing_function=preprocess_input)
 test_img_generator = img_generator.flow_from_directory(
                         test_dir,
                         target_size = (img_size, img_size),
-                        class_mode = 'categorical',
+                        class_mode = None,
                         batch_size= batch_size,
                         interpolation = 'lanczos',
                         shuffle = False)
@@ -94,7 +87,7 @@ test_img_generator = img_generator.flow_from_directory(
 class_names = list(test_img_generator.class_indices.keys())
 print("""Class names: {}""".format(class_names))
 
-steps_test = test_img_generator.n // batch_size
+steps_test = test_img_generator.n // batch_size + 1
 test_classes = test_img_generator.classes[:steps_test*batch_size]
 print("""Steps on test: {}""".format(steps_test))
 
@@ -102,7 +95,7 @@ print("""Steps on test: {}""".format(steps_test))
 ### Evaluate model accuracy and loss
 test_img_generator.reset()
 results = model.evaluate_generator(test_img_generator, steps_test, workers=4)
-print("Loss: ", "{0:.4f}".format(results[0]), "Accuracy: ", "{0:.4f}".format(results[1]))
+print("Loss: {0:.4f} Accuracy: {1:.4f}".format(results))
 
 #%%
 ### Produce confusion matrix
@@ -127,8 +120,7 @@ predictions_labeled = [labels[k] for k in predicted_class_indices]
 pd.set_option('display.max_rows', None)
 cdf = pd.DataFrame({"Filename": test_img_generator.filenames[:len(test_classes)],
               "Prediction": predictions_labeled,
-              "Benign": ["{0:.4f}".format(i[0]) for i in predictions],
-              "Malign": ["{0:.4f}".format(i[1]) for i in predictions]})
+              "Benign Score": ["{0:.4f}".format(i[0]) for i in predictions],
+              "Malign Score": ["{0:.4f}".format(i[1]) for i in predictions]})
 
-output_file = '../data/'+'{name}.csv'.format(name=output_name)
-cdf.to_csv(output_file, encoding='utf-8', index=False)
+cdf.to_csv(output_path, encoding='utf-8', index=False)
