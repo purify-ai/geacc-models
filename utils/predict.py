@@ -56,8 +56,7 @@ def main(argv):
     results = []
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_path", help="Path to the input image or folder containing images.\
-                        Only jpeg images are supported.")
+    parser.add_argument("input_path", help="Path to the input image or folder containing images.")
     parser.add_argument("-m", "--model_path", required=True,
                         help="Path to the trained Keras model in HDF5 file format")
     parser.add_argument("-c", "--csv_path", required=False,
@@ -74,7 +73,7 @@ def main(argv):
     elif (os.path.isdir(args.input_path)):
         for f in os.listdir(args.input_path):
             img_path = os.path.join(args.input_path, f)
-            if img_path.lower().endswith(('.jpg', '.jpeg', 'png')):
+            if img_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.ppm', '.tif', '.tiff')):
                 predict_res = predict_image(img_path)
                 results.append(predict_res)
 

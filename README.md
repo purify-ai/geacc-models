@@ -55,6 +55,42 @@ For comparison, we also ran our test data though OpenNSFW model with `cutoff=0.5
 
 ![alt text](assets/opennsfw-cm.png?raw=true "OpenNSFW Results Confusion Matrix")
 
+## Performing Classification
+
+To classify images using Geacc model, you can use `utils/predict.py` script provided in this repo. Note that it requires Keras and TensorFlow dependencies.
+
+Usage:
+
+```
+% python3 utils/predict.py -h
+
+usage: predict.py [-h] -m MODEL_PATH [-c CSV_PATH] input_path
+
+positional arguments:
+  input_path            Path to the input image or folder containing images.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m MODEL_PATH, --model_path MODEL_PATH
+                        Path to the trained Keras model in HDF5 file format
+  -c CSV_PATH, --csv_path CSV_PATH
+                        Optional. If specified, results will be saved to CSV
+                        file instead of stdout
+```
+
+Example:
+
+```
+% python3 utils/predict.py -m ../models/PurifyAI_Geacc_MobileNetV2_224.h5 ../img/
+
+Using TensorFlow backend.
+            Filename Prediction  Latency (ms) Benign Score Malign Score
+0    ../img/dog1.jpg     benign            62       0.7445       0.2555
+1   ../img/nsfw1.jpg     malign            89       0.0000       1.0000
+2   ../img/nsfw2.jpg     malign            91       0.0150       0.9850
+3    ../img/cat1.jpg     benign            74       0.8820       0.1180
+```
+
 ## Disclaimer
 This project is currently in the early development stage. We do not provide guarantees of output accuracy.
 
