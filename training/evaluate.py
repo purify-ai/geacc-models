@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Evaluate GACC trained model
+# Evaluate Geacc trained model
 #%%
 import numpy as np
 import matplotlib.pyplot as plt
@@ -28,8 +28,8 @@ from sklearn.metrics import confusion_matrix
 ### Hyperparameters
 img_size = 224 # img width and height
 
-model_path = '../models/PurifyAI_GACC_MobileNetV2_224.h5'
-output_path = '../data/PurifyAI_GACC_MobileNetV2_224.csv'
+model_path = '../models/PurifyAI_Geacc_MobileNetV2_224.h5'
+output_path = '../data/PurifyAI_Geacc_MobileNetV2_224.csv'
 
 test_dir  = "../data/training_data/validate"
 

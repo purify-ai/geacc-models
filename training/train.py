@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Fine-tuning ImageNet trained MobileNetV2 with GACC dataset
+# Fine-tuning ImageNet trained MobileNetV2 with Geacc dataset
 
 #%%
 import datetime
@@ -35,7 +35,7 @@ trainable_layers = 30 # number of trainable layers at the top of the model; all 
 train_dir = "../training_data/train"
 test_dir  = "../training_data/validate"
 
-output_name = "PurifyAI_GACC_MobileNetV2_{dim_img}_lr{lr}bs{bs}ep{ep}tl{tl}".format(dim_img=img_size, lr=learning_rate, bs=batch_size, ep=epochs, tl=trainable_layers)
+output_name = "PurifyAI_Geacc_MobileNetV2_{dim_img}_lr{lr}bs{bs}ep{ep}tl{tl}".format(dim_img=img_size, lr=learning_rate, bs=batch_size, ep=epochs, tl=trainable_layers)
 tensorboard_logs = "./tb_logs/"
 
 print('Available GPUs:', backend.tensorflow_backend._get_available_gpus())

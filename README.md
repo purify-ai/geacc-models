@@ -1,16 +1,16 @@
-# General Audience Content Classifier
-General Audience Content Classifier (GACC) is a pre-trained deep neural network model for classifying images which are suitable for general audiences with a particular focus on children and adolescents below the age of 12.
+# Geacc: General Audience Content Classifier
+GEneral Audience Content Classifier (Geacc) is a pre-trained deep neural network model for classifying images which are suitable for general audiences with a particular focus on children and adolescents below the age of 12.
 
 Currently, the model detects sexually explicit content. In the future, we plan to extend it to other types of harmful visual content such as violence and horror.
 
-Please note that GACC is not designed to be a general purpose porn classifier. It is deliberately trained to be stricter. We like to think of it as a parent of 8 years old, although even that would be a very subjective criterion.
+Please note that Geacc is not designed to be a general purpose porn classifier. It is deliberately trained to be stricter. We like to think of it as a parent of 8 years old, although even that would be a very subjective criterion.
 
 To minimise the number of false-positives in this particular context, for "benign" training images emphasis was made on the scenes which children come across most often: cartoons, children movies, toys, games, nurseries, playgrounds, etc.
 
 If you find it useful, please let us know about your use case by filling in short form here. As a non-profit organisation, it's essential for us to gauge the impact of our work.
 
 ## Download
-Pre-trained model is available in Keras HDF5 format and can be [downloaded here](https://github.com/purify-ai/gacc/releases).
+Pre-trained model is available in Keras HDF5 format and can be [downloaded here](https://github.com/purify-ai/geacc-models/releases).
 
 ## Definitions
 Definition of "General Audience" varies depending on the country and type of content. Our definition influenced by [Television Content Rating systems](https://en.wikipedia.org/wiki/Television_content_rating_system) which are stricter than movie and gaming rating systems. TV content rating systems of many countries define "General Audience" content suitable for children under 12.
@@ -39,16 +39,16 @@ We do not provide original dataset due to the nature of the data and the fact th
 ## Training Process
 Training was performed using Keras with TensorFlow backend.
 
-Instead of training from scratch, we used fine-tuning approach. MobileNetV2 model pre-trained with ImageNet was used as the basis for the GACC model. The top fully connected layer was replaced for binary classification (malign/benign). All layers except the top 30 layers were frozen.
+Instead of training from scratch, we used fine-tuning approach. MobileNetV2 model pre-trained with ImageNet was used as the basis for the Geacc model. The top fully connected layer was replaced for binary classification (malign/benign). All layers except the top 30 layers were frozen.
 
 Images were resized and cropped to match 224x224 input size and augmented to improve accuracy.
 
 Hyperparameters and other details can be found in the source code of the training script.
 
 ## Results
-GACC Model achieved more than 95% accuracy on the test dataset. Confusion matrix below has a more granular view of the results (`cutoff=0.5`).
+Geacc model achieved more than 95% accuracy on the test dataset. Confusion matrix below has a more granular view of the results (`cutoff=0.5`).
 
-![alt text](assets/gacc-cm.png?raw=true "GACC Results Confusion Matrix")
+![alt text](assets/geacc-cm.png?raw=true "Geacc Results Confusion Matrix")
 
 ## How does it compare to Yahoo! OpenNSFW?
 For comparison, we also ran our test data though OpenNSFW model with `cutoff=0.5`. As can be seen in the confusion matrix below, OpenNSFW model is less strict with malign images.
