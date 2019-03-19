@@ -20,9 +20,9 @@ import argparse
 import datetime
 import numpy as np
 import pandas as pd
-from keras import models
-from keras.preprocessing import image
-from keras.applications.mobilenetv2 import preprocess_input
+from tensorflow.keras import models
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
 img_size = 224 # img width and height
 model = 0

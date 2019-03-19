@@ -127,7 +127,7 @@ model.compile(optimizer=Adam(lr=learning_rate),
 early_stop  = callbacks.EarlyStopping(monitor = 'val_loss', min_delta=0.01, patience=10)
 tensorboard = callbacks.TensorBoard(log_dir=tensorboard_logs)
 
-checkpoint_file = '../models/' + output_name + "_{epoch:02d}_{val_loss:.2f}.h5"
+checkpoint_file = './models/' + output_name + "_{epoch:02d}_{val_loss:.2f}.h5"
 checkpointer = callbacks.ModelCheckpoint(filepath=checkpoint_file, verbose=1, save_best_only=True)
 
 model.fit_generator(train_img_generator,
@@ -140,5 +140,5 @@ model.fit_generator(train_img_generator,
 
 #%%
 ### Save final model
-output_file = '../models/'+'{name}_final.h5'.format(name=output_name)
+output_file = './models/'+'{name}_final.h5'.format(name=output_name)
 model.save(output_file)

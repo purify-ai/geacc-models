@@ -28,7 +28,7 @@ from sklearn.metrics import confusion_matrix
 ### Hyperparameters
 img_size = 224 # img width and height
 
-model_path = '../models/PurifyAI_Geacc_MobileNetV2_224.h5'
+model_path = './models/PurifyAI_Geacc_MobileNetV2_224.h5'
 output_path = '../data/PurifyAI_Geacc_MobileNetV2_224.csv'
 
 test_dir  = "../data/training_data/validate"

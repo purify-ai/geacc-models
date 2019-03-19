@@ -17,6 +17,48 @@ Definition of "General Audience" varies depending on the country and type of con
 
 The precise definition of sexually explicit content is also highly subjective. In this project we consider _any visual material that may cause sexual arousal or fantasy, whether intentional or unintentional_, to be harmful. Framing the problem in that particular way prioritises child safety over objectivity, removes ambiguity and makes machine learning model more robust.
 
+## Performing Classification
+
+To classify images using Geacc model, you can use Docker image which includes all dependencies such as TensorFlow. Alternatively, if you already have TensorFlow setup, you can use `utils/predict.py` script provided in this repo.
+
+To classify all images in the current directory using Docker image:
+
+```
+docker run -it --rm --volume=$(pwd):/myimages purifyai/geacc:latest /geacc/predict.py -m /geacc/PurifyAI_Geacc_MobileNetV2_224.h5 /myimages/
+```
+
+Usage:
+
+```
+% utils/predict.py -h
+
+usage: predict.py [-h] -m MODEL_PATH [-c CSV_PATH] input_path
+
+positional arguments:
+  input_path            Path to the input image or folder containing images.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m MODEL_PATH, --model_path MODEL_PATH
+                        Path to the trained Keras model in HDF5 file format
+  -c CSV_PATH, --csv_path CSV_PATH
+                        Optional. If specified, results will be saved to CSV
+                        file instead of stdout
+```
+
+Example:
+
+```
+% utils/predict.py -m ./models/PurifyAI_Geacc_MobileNetV2_224.h5 /path/to/myimages/
+
+Using TensorFlow backend.
+            Filename Prediction  Latency (ms) Benign Score Malign Score
+0    ../img/dog1.jpg     benign            62       0.7445       0.2555
+1   ../img/nsfw1.jpg     malign            89       0.0000       1.0000
+2   ../img/nsfw2.jpg     malign            91       0.0150       0.9850
+3    ../img/cat1.jpg     benign            74       0.8820       0.1180
+```
+
 ## Deep Neural Network architecture
 This model based on lightweight [MobileNetV2](https://ai.googleblog.com/2018/04/mobilenetv2-next-generation-of-on.html) architecture which was specifically designed to run on personal mobile devices.
 
@@ -54,42 +96,6 @@ Geacc model achieved more than 95% accuracy on the test dataset. Confusion matri
 For comparison, we also ran our test data though OpenNSFW model with `cutoff=0.5`. As can be seen in the confusion matrix below, OpenNSFW model is less strict with malign images.
 
 ![alt text](assets/opennsfw-cm.png?raw=true "OpenNSFW Results Confusion Matrix")
-
-## Performing Classification
-
-To classify images using Geacc model, you can use `utils/predict.py` script provided in this repo. Note that it requires Keras and TensorFlow dependencies.
-
-Usage:
-
-```
-% python3 utils/predict.py -h
-
-usage: predict.py [-h] -m MODEL_PATH [-c CSV_PATH] input_path
-
-positional arguments:
-  input_path            Path to the input image or folder containing images.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -m MODEL_PATH, --model_path MODEL_PATH
-                        Path to the trained Keras model in HDF5 file format
-  -c CSV_PATH, --csv_path CSV_PATH
-                        Optional. If specified, results will be saved to CSV
-                        file instead of stdout
-```
-
-Example:
-
-```
-% python3 utils/predict.py -m ../models/PurifyAI_Geacc_MobileNetV2_224.h5 ../img/
-
-Using TensorFlow backend.
-            Filename Prediction  Latency (ms) Benign Score Malign Score
-0    ../img/dog1.jpg     benign            62       0.7445       0.2555
-1   ../img/nsfw1.jpg     malign            89       0.0000       1.0000
-2   ../img/nsfw2.jpg     malign            91       0.0150       0.9850
-3    ../img/cat1.jpg     benign            74       0.8820       0.1180
-```
 
 ## Disclaimer
 This project is currently in the early development stage. We do not provide guarantees of output accuracy.
