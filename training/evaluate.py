@@ -18,20 +18,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from keras import layers, models, callbacks, backend
-from keras.optimizers import Adam
-from keras.applications.mobilenetv2 import MobileNetV2, preprocess_input
-from keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import layers, models, callbacks, backend
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from collections import Counter
 from sklearn.metrics import confusion_matrix
 
 ### Hyperparameters
 img_size = 224 # img width and height
+batch_size = 128
 
-model_path = './models/PurifyAI_Geacc_MobileNetV2_224.h5'
-output_path = '../data/PurifyAI_Geacc_MobileNetV2_224.csv'
+model_path = 'models/PurifyAI_Geacc_MobileNetV2_224.h5'
+output_path = 'models/PurifyAI_Geacc_MobileNetV2_224.csv'
 
-test_dir  = "../data/training_data/validate"
+test_dir  = "models/dataset/"
 
 def draw_confusion_matrix(confusion_matrix, class_names, figsize = (10,7), fontsize=14):
     """Prints a confusion matrix, as returned by sklearn.metrics.confusion_matrix, as a heatmap.
@@ -79,7 +80,7 @@ img_generator = ImageDataGenerator(preprocessing_function=preprocess_input)
 test_img_generator = img_generator.flow_from_directory(
                         test_dir,
                         target_size = (img_size, img_size),
-                        class_mode = None,
+                        class_mode = 'categorical',
                         batch_size= batch_size,
                         interpolation = 'lanczos',
                         shuffle = False)
@@ -95,7 +96,7 @@ print("""Steps on test: {}""".format(steps_test))
 ### Evaluate model accuracy and loss
 test_img_generator.reset()
 results = model.evaluate_generator(test_img_generator, steps_test, workers=4)
-print("Loss: {0:.4f} Accuracy: {1:.4f}".format(results))
+print("Loss: {0:.4f} Accuracy: {1:.4f}".format(*results))
 
 #%%
 ### Produce confusion matrix
