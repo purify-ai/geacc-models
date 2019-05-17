@@ -109,3 +109,20 @@ venv.bak/
 # IDE
 .vscode
 .DS_Store
+
+# Local Terraform directories
+**/.terraform/*
+
+# Terraform .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Terraform crash log files
+crash.log
+
+# Ignore Terraform override files as they are usually used to override resources locally
+# and so are not checked in
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

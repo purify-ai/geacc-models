@@ -33,7 +33,7 @@ from io import BytesIO
 import ratelim
 from checkpoints import checkpoints
 
-class_names = {0: 'benign', 1: 'malign'}
+class_names = {0: 'benign', 1: 'explicit', 2: 'suggestive'}
 download_path = 'dataset'
 request_timeout = 120
 img_optimise_size = 0
@@ -52,14 +52,15 @@ fh.setLevel(logging.INFO)
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
+
 def init_folders():
     # Write the images to files, adding them to the package as we go along.
     if not os.path.isdir(download_path):
         os.mkdir(download_path)
-    if not os.path.isdir(f"{download_path}/{class_names[0]}"):
-        os.mkdir(f"{download_path}/{class_names[0]}")
-    if not os.path.isdir(f"{download_path}/{class_names[1]}"):
-        os.mkdir(f"{download_path}/{class_names[1]}")
+
+    for class_id, class_name in class_names.items():
+        if not os.path.isdir(f"{download_path}/{class_name}"):
+            os.mkdir(f"{download_path}/{class_name}")
 
 
 def download(metadata_url):

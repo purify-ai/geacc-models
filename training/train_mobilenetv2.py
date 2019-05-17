@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Fine-tuning ImageNet trained MobileNetV2 with Geacc dataset
+# Fine-tuning ImageNet trained MobileNetV2
 
 #%%
 import datetime
@@ -118,9 +118,11 @@ def build_model():
 model = build_model()
 #model.summary()
 
-model.compile(optimizer=Adam(lr=learning_rate),
-              loss='categorical_crossentropy',
-              metrics=['categorical_accuracy'])
+model.compile(
+    optimizer = Adam(lr=learning_rate),
+    loss = 'categorical_crossentropy',
+    metrics = ['accuracy']
+)
 
 #%% 
 ### Train model
