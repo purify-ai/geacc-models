@@ -126,6 +126,7 @@ data "template_file" "init_script" {
     s3_bucket = "${var.dataset_bucket}"
     s3_object = "${var.dataset_object}"
     git_repo  = "${var.training_repo}"
+    git_branch= "${var.training_branch}"
   }
 }
 

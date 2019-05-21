@@ -20,6 +20,7 @@ import argparse
 from pathlib import Path
 from time import time
 
+import preprocess_crop
 from keras import initializers, regularizers, losses, callbacks, layers, backend, models
 from keras.applications import InceptionV3
 from keras.optimizers import SGD, Adam
@@ -123,17 +124,25 @@ def build_model():
 
     # Construct top layer replacement
     x = base_model.output
-    x = layers.AveragePooling2D(pool_size=(8, 8))(x)
-    x - layers.Dropout(0.4)(x)
-    x = layers.Flatten()(x)
-    x = layers.Dense(256, activation='relu', kernel_initializer=initializers.he_normal(seed=None), kernel_regularizer=regularizers.l2(0.0005))(x)
-    x = layers.Dropout(0.5)(x)
 
+    # Alternative version 1
+    #x = layers.AveragePooling2D(pool_size=(8, 8))(x)
+    #x = layers.Dropout(0.4)(x)
+    #x = layers.Flatten()(x)
+    #x = layers.Dense(256, activation='relu', kernel_initializer=initializers.he_normal(seed=None), kernel_regularizer=regularizers.l2(0.0005))(x)
+    #x = layers.Dropout(0.5)(x)
     # Essential to have another layer for better accuracy
-    x = layers.Dense(128, activation='relu', kernel_initializer=initializers.he_normal(seed=None))(x)
-    x = layers.Dropout(0.25)(x)
-    
-    output_tensor = layers.Dense(OUTPUT_CLASSES_NUM,  kernel_initializer='glorot_uniform', activation='softmax')(x)
+    #x = layers.Dense(128, activation='relu', kernel_initializer=initializers.he_normal(seed=None))(x)
+    #x = layers.Dropout(0.25)(x)
+
+    # Alternative version 2
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dense(4096)(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation('relu')(x)
+    x = layers.Dropout(.5)(x)
+
+    output_tensor = layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax')(x)
     model = models.Model(inputs = base_model.input, outputs=output_tensor)
 
     return model
@@ -148,15 +157,15 @@ def create_generators():
     print('Train image generator')
 
     train_datagen = ImageDataGenerator(
-        preprocessing_function=preprocess_input,
-        rotation_range=30,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        shear_range=0.2,
-        zoom_range=0.2,
+        rotation_range=20,
+        # width_shift_range=0.2,
+        # height_shift_range=0.2,
+        # shear_range=0.2,
+        # zoom_range=[0.8, 1],
         channel_shift_range=20,
         horizontal_flip=True,
-        fill_mode='nearest'
+        #fill_mode='nearest',
+        preprocessing_function=preprocess_input
     )
 
     train_img_generator = train_datagen.flow_from_directory(
@@ -164,7 +173,7 @@ def create_generators():
         target_size = (IMG_SIZE, IMG_SIZE),
         batch_size  = BATCH_SIZE,
         class_mode  = 'categorical',
-        interpolation = 'lanczos',
+        interpolation = 'lanczos:random',
         shuffle = True
     )
 
@@ -180,7 +189,7 @@ def create_generators():
         target_size = (IMG_SIZE, IMG_SIZE),
         batch_size  = BATCH_SIZE,
         class_mode  = 'categorical',
-        interpolation = 'lanczos',
+        interpolation = 'lanczos:center',
         shuffle = False
     )
 
@@ -242,6 +251,7 @@ model.fit_generator(
     validation_steps = steps_validate,
     callbacks = init_callbacks()
     # initial_epoch = ... restart from checkpoint
+    # workers=6, use_multiprocessing=True
  )
 
 ### Save final model

@@ -21,7 +21,7 @@ if [ ! -d "train" ]; then
 fi
 
 # Download the code
-git clone ${git_repo} $CODE_DIR
+git clone -b ${git_branch} --single-branch ${git_repo} $CODE_DIR
 
 chown -R ec2-user:ec2-user $DATA_DIR
 chown -R ec2-user:ec2-user $CODE_DIR

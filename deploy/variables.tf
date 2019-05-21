@@ -70,3 +70,9 @@ variable "training_repo" {
   default = "https://github.com/purify-ai/geacc-models.git"
   description = "Public Git repository where training code is stored."
 }
+
+variable "training_branch" {
+  type    = "string"
+  default = "master"
+  description = "Git branch to checkout."
+}
