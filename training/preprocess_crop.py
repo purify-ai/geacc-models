@@ -52,11 +52,16 @@ def load_and_crop_img(path, grayscale=False, color_mode='rgb', target_size=None,
 
     if target_size is not None:        
         if img.size != (target_width, target_height):
+
+            if crop not in ["center", "random"]:
+                raise ValueError('Invalid crop method {} specified.', crop)
+
             if interpolation not in keras_preprocessing.image.utils._PIL_INTERPOLATION_METHODS:
                 raise ValueError(
                     'Invalid interpolation method {} specified. Supported '
                     'methods are {}'.format(interpolation,
                         ", ".join(keras_preprocessing.image.utils._PIL_INTERPOLATION_METHODS.keys())))
+            
             resample = keras_preprocessing.image.utils._PIL_INTERPOLATION_METHODS[interpolation]
 
             width, height = img.size
