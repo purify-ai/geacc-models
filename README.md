@@ -1,11 +1,7 @@
 # Geacc: General Audience Content Classifier
-GEneral Audience Content Classifier (Geacc) is a pre-trained deep neural network model for classifying images which are suitable for general audiences with a particular focus on children and adolescents below the age of 12.
+GEneral Audience Content Classifier (Geacc) is a pre-trained deep neural network model for classifying images which are not suitable for general audiences.
 
 Currently, the model detects sexually explicit content. In the future, we plan to extend it to other types of harmful visual content such as violence and horror.
-
-Please note that Geacc is not designed to be a general purpose porn classifier. It is deliberately trained to be stricter. We like to think of it as a parent of 8 years old, although even that would be a very subjective criterion.
-
-To minimise the number of false-positives in this particular context, for "benign" training images emphasis was made on the scenes which children come across most often: cartoons, children movies, toys, games, nurseries, playgrounds, etc.
 
 If you find it useful, please let us know about your use case by filling in short form here. As a non-profit organisation, it's essential for us to gauge the impact of our work.
 
@@ -88,14 +84,7 @@ Images were resized and cropped to match 224x224 input size and augmented to imp
 Hyperparameters and other details can be found in the source code of the training script.
 
 ## Results
-Geacc model achieved more than 95% accuracy on the test dataset. Confusion matrix below has a more granular view of the results (`cutoff=0.5`).
-
-![alt text](assets/geacc-cm.png?raw=true "Geacc Results Confusion Matrix")
-
-## How does it compare to Yahoo! OpenNSFW?
-For comparison, we also ran our test data though OpenNSFW model with `cutoff=0.5`. As can be seen in the confusion matrix below, OpenNSFW model is less strict with malign images.
-
-![alt text](assets/opennsfw-cm.png?raw=true "OpenNSFW Results Confusion Matrix")
+Geacc MobileNetV2 model achieved more than 85% accuracy on the test dataset. We are working to improve these results.
 
 ## Disclaimer
 This project is currently in the early development stage. We do not provide guarantees of output accuracy.
