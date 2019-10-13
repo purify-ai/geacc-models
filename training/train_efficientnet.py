@@ -20,15 +20,15 @@ import argparse
 from pathlib import Path
 from time import time
 
-import preprocess_crop
+from training import preprocess_crop
 from keras import initializers, regularizers, losses, callbacks, layers, backend, models
 from keras.optimizers import SGD, Adam
 from keras.preprocessing.image import ImageDataGenerator
-from efficientnet import EfficientNetB3
-from efficientnet import preprocess_input
+import efficientnet.keras as efnet
+from efficientnet.keras import preprocess_input
 
 # Hyperparameters
-IMG_SIZE = 299
+IMG_SIZE = 300
 OUTPUT_CLASSES_NUM = 3
 BATCH_SIZE = 128
 TOTAL_EPOCHS = 100
@@ -112,7 +112,7 @@ def init_callbacks():
 def build_model():
     backend.clear_session()
 
-    base_model = EfficientNetB3(
+    base_model = efnet.EfficientNetB3(
         weights='imagenet', 
         include_top=False, 
         input_shape=(IMG_SIZE, IMG_SIZE, 3)
@@ -130,7 +130,7 @@ def build_model():
     # x = layers.GlobalAveragePooling2D()(x)  # Avg instead of Max
     # x = layers.Flatten(name="flatten")(x)
     x = layers.Dropout(0.2, name="dropout_out")(x)
-    x = layers.Dense(256, activation='relu', name="fc1")(x)
+    #x = layers.Dense(256, activation='relu', name="fc1")(x)
 
     output_tensor = layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name="fc_out")(x)
     model = models.Model(inputs = base_model.input, outputs=output_tensor)
@@ -219,7 +219,7 @@ model = build_model()
 #model.summary()
 
 model.compile(
-    optimizer = SGD(momentum=0.9),
+    optimizer = SGD(momentum=0.9, nesterov=True),
     #optimizer = Adam(lr=0.0005),
     loss = losses.categorical_crossentropy,
     metrics = ['accuracy']
