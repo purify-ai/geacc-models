@@ -30,6 +30,9 @@ chown -R ec2-user:ec2-user $CODE_DIR
 sudo -E -u ec2-user -i bash << EOF
 source activate tensorflow_p36
 pip install efficientnet
+pip install --upgrade numpy
+pip install --upgrade scikit-image
+pip install --upgrade Pillow
 cd $CODE_DIR/training
 nohup tensorboard --logdir="$DATA_DIR/tb_logs" &> nohup_tb.out &
 #nohup python3 train_inceptionv3.py -d $DATA_DIR/dataset -m $DATA_DIR/models -t $DATA_DIR/tb_logs &

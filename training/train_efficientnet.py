@@ -130,7 +130,7 @@ def build_model():
     # x = layers.GlobalAveragePooling2D()(x)  # Avg instead of Max
     # x = layers.Flatten(name="flatten")(x)
     x = layers.Dropout(0.2, name="dropout_out")(x)
-    #x = layers.Dense(256, activation='relu', name="fc1")(x)
+    x = layers.Dense(256, activation='relu', name="fc1")(x)
 
     output_tensor = layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name="fc_out")(x)
     model = models.Model(inputs = base_model.input, outputs=output_tensor)
