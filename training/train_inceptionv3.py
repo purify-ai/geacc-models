@@ -21,6 +21,7 @@ from pathlib import Path
 from time import time
 
 import preprocess_crop
+import tensorflow as tf
 from keras import initializers, regularizers, losses, callbacks, layers, backend, models
 from keras.applications import InceptionV3
 from keras.optimizers import SGD, Adam
@@ -30,13 +31,19 @@ from keras.applications.inception_v3 import preprocess_input
 # Hyperparameters
 IMG_SIZE = 299
 OUTPUT_CLASSES_NUM = 3
-BATCH_SIZE = 128
-TOTAL_EPOCHS = 100
-FROZEN_LAYERS_NUM = 168
+
+HPARAMS = {
+    'optimizer':        'sgd', # or 'adam'
+    'momentum':         0.9, # for SGD
+    'learning_rate':    0.0005, # for Adam
+    'batch_size':       128,
+    'total_epochs':     1,
+    'frozen_layer_num': 168
+}
 
 # Other Consts
 OUTPUT_MODEL_PREFIX = f"Geacc_InceptionV3_{int(time())}"
-OUTPUT_MODEL_NAME = OUTPUT_MODEL_PREFIX + f"_{IMG_SIZE}x{IMG_SIZE}_bs{BATCH_SIZE}_fl{FROZEN_LAYERS_NUM}"
+OUTPUT_MODEL_NAME = OUTPUT_MODEL_PREFIX + f"_{IMG_SIZE}x{IMG_SIZE}_bs{HPARAMS['batch_size']}"
 
 DATASET_PATH = 'data/dataset'
 OUTPUT_PATH = 'data/models'
@@ -44,6 +51,24 @@ TENSORBOARD_PATH = False
 
 
 #%%
+class LoggingTensorBoard(callbacks.TensorBoard):    
+
+    def __init__(self, log_dir, hparams, **kwargs):
+        super(LoggingTensorBoard, self).__init__(log_dir, **kwargs)
+
+        self.hparams = hparams
+
+    def on_train_begin(self, logs=None):
+        callbacks.TensorBoard.on_train_begin(self, logs=logs)
+
+        tensor = tf.stack([tf.convert_to_tensor([k, str(v)]) for k, v in self.hparams.items()])
+        text_summary = tf.summary.text("Hyperparameters", tensor)
+
+        with tf.Session() as sess:
+            s = sess.run(text_summary)
+            self.writer.add_summary(s)
+            self.writer.flush()
+
 def input_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dataset", metavar="PATH", required=True,
@@ -78,6 +103,25 @@ def step_decay_schedule(epoch):
     else:
         return .0000009
 
+def get_optimizer(hparams):
+  """Returns optimizer.
+
+  Args:
+    hparams: hyper parameters.
+
+  Raises:
+    ValueError: if type of optimizer specified in hparams is incorrect.
+
+  Returns:
+    Instance of optimizer class.
+  """
+  if hparams['optimizer'] == 'sgd':
+    optimizer = SGD(momentum=hparams['momentum'])
+  elif hparams['optimizer'] == 'adam':
+    optimizer = Adam(lr=hparams['learning_rate'])
+  else:
+    raise ValueError('Invalid value of optimizer: %s' % hparams['optimizer'])
+  return optimizer
 
 # Setup callbacks
 def init_callbacks():
@@ -101,7 +145,7 @@ def init_callbacks():
     if (TENSORBOARD_PATH):
         tb_logs_dir = os.path.join(TENSORBOARD_PATH, OUTPUT_MODEL_PREFIX)
         print('TensorBoard events:', tb_logs_dir)
-        tensorboard = callbacks.TensorBoard(log_dir=tb_logs_dir)
+        tensorboard = LoggingTensorBoard(log_dir=tb_logs_dir, hparams=HPARAMS)
         use_callbacks.append(tensorboard)
 
     return use_callbacks
@@ -119,7 +163,7 @@ def build_model():
     )
 
     # Freeze bottom layers
-    for layer in base_model.layers[:FROZEN_LAYERS_NUM]:
+    for layer in base_model.layers[:HPARAMS['frozen_layer_num']]:
         layer.trainable = False
 
     # Construct top layer replacement
@@ -171,7 +215,7 @@ def create_generators():
     train_img_generator = train_datagen.flow_from_directory(
         train_dir,
         target_size = (IMG_SIZE, IMG_SIZE),
-        batch_size  = BATCH_SIZE,
+        batch_size  = HPARAMS['batch_size'],
         class_mode  = 'categorical',
         interpolation = 'lanczos:random',
         shuffle = True
@@ -187,7 +231,7 @@ def create_generators():
     validate_img_generator = validate_datagen.flow_from_directory(
         validate_dir,
         target_size = (IMG_SIZE, IMG_SIZE),
-        batch_size  = BATCH_SIZE,
+        batch_size  = HPARAMS['batch_size'],
         class_mode  = 'categorical',
         interpolation = 'lanczos:center',
         shuffle = False
@@ -199,10 +243,10 @@ def create_generators():
     class_names = list(train_img_generator.class_indices.keys())
     print(f"Class names: {class_names}")
 
-    steps_train = train_img_generator.n // BATCH_SIZE
+    steps_train = train_img_generator.n // HPARAMS['batch_size']
     print(f"Steps on train: {steps_train}")
 
-    steps_validate = validate_img_generator.n // BATCH_SIZE
+    steps_validate = validate_img_generator.n // HPARAMS['batch_size']
     print(f"Steps on validation: {steps_validate}")
 
     return [train_img_generator, validate_img_generator, steps_train, steps_validate]
@@ -229,8 +273,7 @@ model = build_model()
 #model.summary()
 
 model.compile(
-    optimizer = SGD(momentum=0.9),
-    #optimizer = Adam(lr=0.0005),
+    optimizer = get_optimizer(HPARAMS),
     loss = losses.categorical_crossentropy,
     metrics = ['accuracy']
 )
@@ -246,7 +289,7 @@ print('Starting training')
 model.fit_generator(
     train_img_generator,
     steps_per_epoch = steps_train,
-    epochs = TOTAL_EPOCHS,
+    epochs = HPARAMS['total_epochs'],
     validation_data = validate_img_generator,
     validation_steps = steps_validate,
     callbacks = init_callbacks()
