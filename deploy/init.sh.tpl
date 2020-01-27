@@ -30,6 +30,7 @@ chown -R ec2-user:ec2-user $CODE_DIR
 sudo -E -u ec2-user -i bash << EOF
 source activate tensorflow_p36
 pip install efficientnet
+pip install extra_keras_metrics
 pip install --upgrade numpy
 pip install --upgrade scikit-image
 pip install --upgrade Pillow

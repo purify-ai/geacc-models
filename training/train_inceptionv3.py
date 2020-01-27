@@ -27,6 +27,7 @@ from keras.applications import InceptionV3
 from keras.optimizers import SGD, Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras.applications.inception_v3 import preprocess_input
+import extra_keras_metrics
 
 # Hyperparameters
 IMG_SIZE = 299
@@ -275,7 +276,7 @@ model = build_model()
 model.compile(
     optimizer = get_optimizer(HPARAMS),
     loss = losses.categorical_crossentropy,
-    metrics = ['accuracy']
+    metrics = ['accuracy', "auroc", "auprc"]
 )
 
 #%%
