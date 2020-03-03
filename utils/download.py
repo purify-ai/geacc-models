@@ -30,7 +30,7 @@ from dask.diagnostics import ProgressBar
 
 from PIL import Image
 from io import BytesIO
-import ratelim
+# import ratelim
 from checkpoints import checkpoints
 
 class_names = {0: 'benign', 1: 'explicit', 2: 'suggestive'}
@@ -85,7 +85,7 @@ def download(metadata_url):
         dask.compute(*delayed_futures)
 
 
-#@ratelim.patient(5, 5)
+# @ratelim.patient(5, 5)
 def _download_image(row):
     """Download a single image from a URL, rate-limited to once per second"""
     image_url = row['OriginalURL']
@@ -121,10 +121,10 @@ def _download_image(row):
 
 
 def _generate_filename(url):
-    """Use encoded URL as a filename. This helps with dataset troubleshooting. 
+    """Use encoded URL as a filename. This helps with dataset troubleshooting.
     At any point it is possible to URL decode filename and obtain original url.
 
-    Not all URLs can encoded with this scheme as filename length restricted 
+    Not all URLs can encoded with this scheme as filename length restricted
     to 250 symbols on many filesystems.
     """
     filename = urllib.parse.quote_plus(url)
@@ -137,7 +137,7 @@ def _generate_filename(url):
 
 def _image_resize_and_save(img_content, filename):
     orig_content = BytesIO(img_content)
-    
+
     try:
         img = Image.open(orig_content)
 

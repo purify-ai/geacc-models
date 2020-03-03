@@ -10,7 +10,7 @@ instance_type   = "p2.xlarge"
 spot_price      = "0.35"  # USD/hour
 
 ebs_volume_size = "30"    # GB
-ebs_snapshot_id = "snap-0192b2031e6dbb2cd"
+ebs_snapshot_id = "snap-083be47753d7429c1"
 
 dataset_bucket = "private-data.purify.ai"
 dataset_object = "training_data/v1.1/dataset-8k.tar.gz"
