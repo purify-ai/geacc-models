@@ -46,10 +46,10 @@ HPARAMS = {
 
     # temporarily hardcoded, move to dataset.info
     'class_names':              ['benign', 'explicit', 'suggestive'],
-    'train_image_files':        8000 * 3,
-    'validate_image_files':     1000 * 3,
-    'test_image_files':         1000 * 3,
-    'train_tfrecord_files':     8,
+    'train_image_files':        128 * 3,
+    'validate_image_files':     128 * 3,
+    'test_image_files':         128 * 3,
+    'train_tfrecord_files':     1,
     'validate_tfrecord_files':  1,
     'test_tfrecord_files':      1,
 }
@@ -63,27 +63,8 @@ OUTPUT_PATH = 'data/models'
 TENSORBOARD_PATH = False
 TPU_ADDRESS = False
 
+
 # %%
-class LoggingTensorBoard(tf.keras.callbacks.TensorBoard):
-
-    def __init__(self, log_dir, hparams, **kwargs):
-        super(LoggingTensorBoard, self).__init__(log_dir, **kwargs)
-
-        self.hparams = hparams
-
-    def on_train_begin(self, logs=None):
-        tf.keras.callbacks.TensorBoard.on_train_begin(self, logs=logs)
-
-        tensor = tf.stack([tf.convert_to_tensor([k, str(v)])
-                           for k, v in self.hparams.items()])
-        text_summary = tf.summary.text("Hyperparameters", tensor)
-
-        with tf.Session() as sess:
-            s = sess.run(text_summary)
-            self.writer.add_summary(s)
-            self.writer.flush()
-
-
 def get_filenames(is_training, data_dir):
     """Get TFRecord filenames for dataset."""
     if is_training:
@@ -165,7 +146,14 @@ def init_callbacks():
     if (TENSORBOARD_PATH):
         tb_logs_dir = os.path.join(TENSORBOARD_PATH, OUTPUT_MODEL_PREFIX)
         print('TensorBoard events:', tb_logs_dir)
-        tensorboard = LoggingTensorBoard(log_dir=tb_logs_dir, hparams=HPARAMS)
+
+        # Capture hyperparameters in Tensorboard
+        with tf.summary.create_file_writer(tb_logs_dir + "/hparams").as_default():
+            tensor = tf.stack([tf.convert_to_tensor([k, str(v)])
+                                    for k, v in HPARAMS.items()])
+            tf.summary.text("Hyperparameters", tensor, step=0)
+
+        tensorboard = tf.keras.callbacks.TensorBoard(log_dir=tb_logs_dir)
         use_callbacks.append(tensorboard)
 
     return use_callbacks
@@ -207,7 +195,7 @@ def load_datasets():
         filenames   = get_filenames(is_training=True, data_dir=DATASET_PATH),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
-        parse_record_fn = image_preprocessing.get_parse_record_fn(use_keras_image_data_format=False),
+        parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
         # datasets_num_private_threads=None,
         # dtype=tf.float32,
         # drop_remainder=False,
@@ -220,7 +208,7 @@ def load_datasets():
         filenames   = get_filenames(is_training=True, data_dir=DATASET_PATH),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
-        parse_record_fn = image_preprocessing.get_parse_record_fn(use_keras_image_data_format=False),
+        parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
     )
 
     class_names = HPARAMS['class_names']
@@ -288,8 +276,8 @@ def train(dataset_path='data/dataset',
 
         model.compile(
             optimizer=get_optimizer(HPARAMS),
-            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-            metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]
+            loss=tf.losses.CategoricalCrossentropy(),
+            metrics=[tf.metrics.CategoricalAccuracy(), tf.metrics.AUC()]
         )
 
     print('Starting training')

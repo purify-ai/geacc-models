@@ -208,12 +208,11 @@ def parse_record(raw_record, is_training, dtype):
 
     # Subtract one so that labels are in [0, 1000), and cast to float32 for
     # Keras model.
-    label = tf.cast(tf.cast(tf.reshape(label, shape=[1]), dtype=tf.int32) - 1,
-                    dtype=tf.float32)
+    label = tf.cast(tf.cast(tf.reshape(label, shape=[1]), dtype=tf.int32) - 1, dtype=tf.float32)
     return image, label
 
 
-def get_parse_record_fn(use_keras_image_data_format=False):
+def get_parse_record_fn(use_keras_image_data_format=False, one_hot_encoding_class_num=0):
     """Get a function for parsing the records, accounting for image format.
 
     This is useful by handling different types of Keras models. For instance,
@@ -227,15 +226,22 @@ def get_parse_record_fn(use_keras_image_data_format=False):
         keras backend image data format. If False, the image format is
         channel-last.
         If True, the image format matches tf.keras.backend.image_data_format().
+      one_hot_encoding_class_num: If an integer is greater than 0, labels will
+        be encoded using one-hot (dense) encoding instead of sparse.
 
     Returns:
       Function to use for parsing the records.
     """
     def parse_record_fn(raw_record, is_training, dtype):
         image, label = parse_record(raw_record, is_training, dtype)
+
         if use_keras_image_data_format:
             if tf.keras.backend.image_data_format() == 'channels_first':
                 image = tf.transpose(image, perm=[2, 0, 1])
+        
+        if one_hot_encoding_class_num:
+            label = tf.one_hot(tf.cast(label, tf.int32), one_hot_encoding_class_num)[0]
+
         return image, label
     return parse_record_fn
 

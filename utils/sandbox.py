@@ -18,8 +18,6 @@ VIS_DIR = "/Users/rustam/Development/purify/geacc-models/models/dataset-flowers/
 CLASS_NUM = 3
 
 # %%
-
-
 def plot_images(images, cls_true, cls_pred=None, interpolation="spline16"):
 
     assert len(images) == len(cls_true)
@@ -70,7 +68,6 @@ def plot_images(images, cls_true, cls_pred=None, interpolation="spline16"):
 _NUM_TRAIN_FILES = 1
 _NUM_VALID_FILES = 1
 
-
 def get_filenames(is_training, data_dir):
     """Return filenames for dataset."""
     if is_training:
@@ -91,6 +88,7 @@ train_input_dataset = image_preprocessing.input_fn(
     batch_size=BATCH_SIZE,
     num_epochs=10,
     parse_record_fn=image_preprocessing.get_parse_record_fn(
+        one_hot_encoding_class_num=3,
         use_keras_image_data_format=False),
     # datasets_num_private_threads=None,
     # dtype=tf.float32,
@@ -100,8 +98,8 @@ train_input_dataset = image_preprocessing.input_fn(
 )
 
 features, labels = next(iter(train_input_dataset))
-plot_images(features[0:10],
-            tf.dtypes.cast(tf.reshape(labels, [10]), tf.int8), interpolation="lanczos")
+# plot_images(features[0:10],
+#             tf.dtypes.cast(tf.reshape(labels, [10]), tf.int8), interpolation="lanczos")
 
 # sys.exit()
 
