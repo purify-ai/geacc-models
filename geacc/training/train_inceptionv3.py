@@ -280,6 +280,7 @@ def train(dataset_path='data/dataset',
     HPARAMS['gpu_num'] = gpu_num
     HPARAMS['batch_size'] = batch_size
     HPARAMS['enable_xla'] = False
+    HPARAMS['dtype'] = tf.float32
 
     global DATASET_PATH
     DATASET_PATH = dataset_path
@@ -288,7 +289,7 @@ def train(dataset_path='data/dataset',
     global TENSORBOARD_PATH
     TENSORBOARD_PATH = tb_path
 
-    optimize_performance()
+    #optimize_performance()
 
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,
