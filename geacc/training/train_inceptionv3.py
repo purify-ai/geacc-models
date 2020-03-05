@@ -179,7 +179,8 @@ def build_model():
 def optimize_performance():
     # Use mixed precision when available
     if TPU_ADDRESS:
-        policy = 'mixed_bfloat16'
+        # TODO: Need to investigate 'mixed_bfloat16' introduced error, fallback for FP32.
+        policy = 'float32' # 'mixed_bfloat16'
     elif GPU_NUM > 0:
         policy = 'mixed_float16'
     else:
