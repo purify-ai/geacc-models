@@ -180,19 +180,27 @@ def build_model():
     return model
 
 
-def optimize_performance():
+def optimize_performance(enable_xla=False):
+    if enable_xla:
+        tf.config.optimizer.set_jit(True)
+
     # Use mixed precision when available
     if HPARAMS['tpu_address']:
         # TODO: Need to investigate errors introduced by 'mixed_bfloat16', fallback to FP32.
-        policy = 'float32'  # 'mixed_bfloat16'
+        policy = 'mixed_bfloat16'
+        dtype = tf.bfloat16
     elif HPARAMS['gpu_num']:
         policy = 'mixed_float16'
+        dtype = tf.float16
     else:
         policy = 'float32'
+        dtype = tf.float32
 
     print(f"Setting mixed precision policy to {policy}.")
     tf.keras.mixed_precision.experimental.set_policy(policy)
     HPARAMS['mixed_precision_policy'] = policy
+    HPARAMS['dtype'] = dtype
+
 
 # %%
 # Prepare images for training
@@ -204,8 +212,8 @@ def load_datasets():
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
         # datasets_num_private_threads=None,
-        # dtype=tf.float32,
-        # drop_remainder=False,
+        dtype=HPARAMS['dtype'],
+        drop_remainder=True,
         # tf_data_experimental_slack=False,
         # training_dataset_cache=False,
     )
@@ -216,6 +224,8 @@ def load_datasets():
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
+        dtype=HPARAMS['dtype'],
+        drop_remainder=True,
     )
 
     class_names = HPARAMS['class_names']
@@ -274,11 +284,11 @@ def train(dataset_path='data/dataset',
     global TENSORBOARD_PATH
     TENSORBOARD_PATH = tb_path
 
-    optimize_performance()
+    optimize_performance(enable_xla=True)
 
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,
-        num_gpus=gpu_num,
+        num_gpus=HPARAMS['gpu_num'],
         tpu_address=HPARAMS['tpu_address'])
 
     strategy_scope = distribution_utils.get_strategy_scope(strategy)

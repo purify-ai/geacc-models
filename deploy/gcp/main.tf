@@ -4,10 +4,6 @@ provider "google" {
   zone = var.zone
 }
 
-resource "google_compute_network" "vpc_network" {
-  name = "terraform-network"
-}
-
 resource "google_compute_address" "vm_static_ip" {
   name = "terraform-static-ip"
 }
@@ -25,7 +21,7 @@ resource "google_compute_instance" "vm_instance" {
   }
 
   network_interface {
-    network = google_compute_network.vpc_network.self_link
+    network = "default"
     access_config {
       nat_ip = google_compute_address.vm_static_ip.address
     }
@@ -36,16 +32,19 @@ resource "google_compute_instance" "vm_instance" {
     preemptible = true
   }
 
-  guest_accelerator {
-    type = var.gpu_type
-    count = var.gpu_number
-  }
+  allow_stopping_for_update = true
 
-  metadata = {
-    install-nvidia-driver = "True"
-  }
-
-  # service_account {
-  #   scopes = ["storage-rw"]
+  # guest_accelerator {
+  #   type = var.gpu_type
+  #   count = var.gpu_number
   # }
+
+  # metadata = {
+  #   install-nvidia-driver = "True"
+  # }
+
+  service_account {
+    #email = "9700401775-compute@developer.gserviceaccount.com"
+    scopes = ["cloud-platform"]
+  }
 }

@@ -121,6 +121,11 @@ def get_distribution_strategy(distribution_strategy="mirrored",
                 "flag cannot be set to 'off'.".format(num_gpus))
         return None
 
+    if distribution_strategy != "tpu" and tpu_address:
+        raise ValueError(
+            "When TPU address is specified ({}), distribution_strategy "
+            "flag must be set to 'tpu'.".format(tpu_address))
+
     if distribution_strategy == "tpu":
         # When tpu_address is an empty string, we communicate with local TPUs.
         cluster_resolver = tpu_initialize(tpu_address)
@@ -134,8 +139,7 @@ def get_distribution_strategy(distribution_strategy="mirrored",
         if num_gpus == 0:
             return tf.distribute.OneDeviceStrategy("device:CPU:0")
         if num_gpus > 1:
-            raise ValueError("`OneDeviceStrategy` can not be used for more than "
-                             "one device.")
+            raise ValueError("`OneDeviceStrategy` can not be used for more than one device.")
         return tf.distribute.OneDeviceStrategy("device:GPU:0")
 
     if distribution_strategy == "mirrored":

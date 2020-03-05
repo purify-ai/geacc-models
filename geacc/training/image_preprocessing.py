@@ -206,8 +206,7 @@ def parse_record(raw_record, is_training, dtype):
         is_training=is_training)
     image = tf.cast(image, dtype)
 
-    # Subtract one so that labels are in [0, 1000), and cast to float32 for
-    # Keras model.
+    # Subtract one so that labels are in [0, 1000), and cast to float32 for Keras model.
     label = tf.cast(tf.cast(tf.reshape(label, shape=[1]), dtype=tf.int32) - 1, dtype=tf.float32)
     return image, label
 
