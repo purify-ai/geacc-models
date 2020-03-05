@@ -30,7 +30,7 @@ OUTPUT_CLASSES_NUM = 3
 HPARAMS = {
     'optimizer':        'adam',  # 'sgd' or 'adam'
     'momentum':         0.9,     # for SGD
-    'learning_rate':    0.002,  # for Adam
+    'learning_rate':    0.002,   # for Adam
     'batch_size':       1024,
     'total_epochs':     30,
     'frozen_layer_num': 168,
@@ -176,6 +176,19 @@ def build_model():
     return model
 
 
+def optimize_performance():
+    # Use mixed precision when available
+    if TPU_ADDRESS:
+        policy = 'mixed_bfloat16'
+    elif GPU_NUM > 0:
+        policy = 'mixed_float16'
+    else:
+        policy = 'float32'
+
+    print(f"Setting mixed precision policy to {policy}.")
+    tf.keras.mixed_precision.experimental.set_policy(policy)
+    HPARAMS['mixed_precision_policy'] = policy
+
 # %%
 # Prepare images for training
 def load_datasets():
@@ -254,16 +267,10 @@ def train(dataset_path='data/dataset',
     TENSORBOARD_PATH = tb_path
     global TPU_ADDRESS
     TPU_ADDRESS = tpu_address
+    global GPU_NUM
+    GPU_NUM = gpu_num
 
-    # Use mixed precision when available
-    if TPU_ADDRESS:
-        policy = 'mixed_bfloat16'
-    elif gpu_num > 0:
-        policy = 'mixed_float16'
-    else:
-        policy = 'float32'
-
-    tf.keras.mixed_precision.experimental.set_policy(policy)
+    optimize_performance()
 
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,
