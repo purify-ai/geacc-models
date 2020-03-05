@@ -23,15 +23,6 @@ from . import project_path
 from . import image_preprocessing
 from . import distribution_utils
 
-# Colab-only Tensorflow version selector
-# if 'google.colab' in sys.modules:
-#     try:
-#         %tensorflow_version 2.x
-#     except Exception:
-#         pass
-
-print('Tensorflow version: ', tf.__version__)
-
 # Hyperparameters
 IMG_SIZE = 299
 OUTPUT_CLASSES_NUM = 3
@@ -39,8 +30,8 @@ OUTPUT_CLASSES_NUM = 3
 HPARAMS = {
     'optimizer':        'adam',  # 'sgd' or 'adam'
     'momentum':         0.9,     # for SGD
-    'learning_rate':    0.0005,  # for Adam
-    'batch_size':       128,
+    'learning_rate':    0.002,  # for Adam
+    'batch_size':       1024,
     'total_epochs':     30,
     'frozen_layer_num': 168,
 
@@ -56,8 +47,6 @@ HPARAMS = {
 
 # Other Consts
 OUTPUT_MODEL_PREFIX = f"Geacc_InceptionV3_{int(time())}"
-OUTPUT_MODEL_NAME = f"{OUTPUT_MODEL_PREFIX}_{IMG_SIZE}x{IMG_SIZE}_bs{HPARAMS['batch_size']}"
-
 DATASET_PATH = 'data/dataset'
 OUTPUT_PATH = 'data/models'
 TENSORBOARD_PATH = False
@@ -127,7 +116,7 @@ def init_callbacks():
 
     # Checkpoint
     checkpoint_file = os.path.join(
-        OUTPUT_PATH, OUTPUT_MODEL_NAME + "_ep{epoch:02d}_vl{val_loss:.2f}.h5")
+        OUTPUT_PATH, OUTPUT_MODEL_PREFIX + "_ep{epoch:02d}_vl{val_loss:.2f}.tf")
     checkpointer = tf.keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_file, monitor='val_loss', verbose=1, save_best_only=False)
     use_callbacks.append(checkpointer)
@@ -236,14 +225,20 @@ def load_checkpoint(checkpoint_file, model):
 
 
 def train(dataset_path='data/dataset',
-          model_path='data/mode',
+          model_path='data/model',
           tb_path=False,
           distribution_strategy='',
-          tpu_address=''):
+          tpu_address='',
+          gpu_num=0):
     """Run InceptionV3 training and eval loop using native Keras APIs.
 
     Args:
-        flags_obj: An object containing parsed flag values.
+        dataset_path: Path to TFRecord data files for input
+        model_path: Path for model output
+        tb_path: TensorBoard log dir
+        distribution_strategy: ...
+        tpu_address: TPU address. TPU will not be used if not set.
+        gpu_num: Number of GPUs.
     Raises:
         ValueError: If fp16 is passed as it is not currently supported.
         NotImplementedError: If some features are not currently supported.
@@ -260,9 +255,19 @@ def train(dataset_path='data/dataset',
     global TPU_ADDRESS
     TPU_ADDRESS = tpu_address
 
+    # Use mixed precision when available
+    if TPU_ADDRESS:
+        policy = 'mixed_bfloat16'
+    elif gpu_num > 0:
+        policy = 'mixed_float16'
+    else:
+        policy = 'float32'
+
+    tf.keras.mixed_precision.experimental.set_policy(policy)
+
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,
-        # num_gpus=num_gpus,
+        num_gpus=gpu_num,
         tpu_address=tpu_address)
 
     strategy_scope = distribution_utils.get_strategy_scope(strategy)
@@ -293,4 +298,4 @@ def train(dataset_path='data/dataset',
     )
 
     # Save final model
-    model.save(os.path.join(OUTPUT_PATH, OUTPUT_MODEL_NAME + "_final.h5"))
+    model.save(os.path.join(OUTPUT_PATH, OUTPUT_MODEL_PREFIX + "_final.tf"))
