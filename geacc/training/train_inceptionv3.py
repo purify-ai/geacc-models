@@ -28,6 +28,7 @@ IMG_SIZE = 299
 OUTPUT_CLASSES_NUM = 3
 
 HPARAMS = {
+    # Training related
     'optimizer':        'adam',  # 'sgd' or 'adam'
     'momentum':         0.9,     # for SGD
     'learning_rate':    0.002,   # for Adam
@@ -35,7 +36,11 @@ HPARAMS = {
     'total_epochs':     30,
     'frozen_layer_num': 168,
 
-    # temporarily hardcoded, move to dataset.info
+    # Other params
+    'tpu_address':      False,
+    'gpu_num':          0,
+
+    # Dataset params. TODO: move to dataset.info
     'class_names':              ['benign', 'explicit', 'suggestive'],
     'train_image_files':        8000 * 3,
     'validate_image_files':     1000 * 3,
@@ -50,7 +55,6 @@ OUTPUT_MODEL_PREFIX = f"Geacc_InceptionV3_{int(time())}"
 DATASET_PATH = 'data/dataset'
 OUTPUT_PATH = 'data/models'
 TENSORBOARD_PATH = False
-TPU_ADDRESS = False
 
 
 # %%
@@ -63,7 +67,7 @@ def get_filenames(is_training, data_dir):
         filenames = [
             os.path.join(data_dir, 'validation-{:05d}-of-{:05d}'.format(i, HPARAMS['validate_tfrecord_files'])) for i in range(HPARAMS['validate_image_files'])]
 
-    if TPU_ADDRESS and not distribution_utils.tpu_compatible_files(filenames):
+    if HPARAMS['tpu_address'] and not distribution_utils.tpu_compatible_files(filenames):
         raise Exception("TPU requires files stored in Google Cloud Storage (GCS) buckets.")
 
     return filenames
@@ -178,10 +182,10 @@ def build_model():
 
 def optimize_performance():
     # Use mixed precision when available
-    if TPU_ADDRESS:
-        # TODO: Need to investigate 'mixed_bfloat16' introduced error, fallback for FP32.
-        policy = 'mixed_float16' # 'mixed_bfloat16'
-    elif GPU_NUM > 0:
+    if HPARAMS['tpu_address']:
+        # TODO: Need to investigate errors introduced by 'mixed_bfloat16', fallback to FP32.
+        policy = 'float32'  # 'mixed_bfloat16'
+    elif HPARAMS['gpu_num']:
         policy = 'mixed_float16'
     else:
         policy = 'float32'
@@ -251,7 +255,7 @@ def train(dataset_path='data/dataset',
         model_path: Path for model output
         tb_path: TensorBoard log dir
         distribution_strategy: ...
-        tpu_address: TPU address. TPU will not be used if not set.
+        HPARAMS['tpu_address']: TPU address. TPU will not be used if not set.
         gpu_num: Number of GPUs.
     Raises:
         ValueError: If fp16 is passed as it is not currently supported.
@@ -260,23 +264,22 @@ def train(dataset_path='data/dataset',
         Dictionary of training and eval stats.
     """
 
+    HPARAMS['tpu_address'] = tpu_address
+    HPARAMS['gpu_num'] = gpu_num
+
     global DATASET_PATH
     DATASET_PATH = dataset_path
     global OUTPUT_PATH
     OUTPUT_PATH = model_path
     global TENSORBOARD_PATH
     TENSORBOARD_PATH = tb_path
-    global TPU_ADDRESS
-    TPU_ADDRESS = tpu_address
-    global GPU_NUM
-    GPU_NUM = gpu_num
 
     optimize_performance()
 
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,
         num_gpus=gpu_num,
-        tpu_address=tpu_address)
+        tpu_address=HPARAMS['tpu_address'])
 
     strategy_scope = distribution_utils.get_strategy_scope(strategy)
 
