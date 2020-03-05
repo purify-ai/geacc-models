@@ -180,8 +180,9 @@ def build_model():
     return model
 
 
-def optimize_performance(enable_xla=False):
-    if enable_xla:
+def optimize_performance():
+    # Enable XLA
+    if HPARAMS['enable_xla']:
         tf.config.optimizer.set_jit(True)
 
     # Use mixed precision when available
@@ -213,7 +214,7 @@ def load_datasets():
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
         # datasets_num_private_threads=None,
         dtype=HPARAMS['dtype'],
-        drop_remainder=True,
+        drop_remainder=HPARAMS['enable_xla'],
         # tf_data_experimental_slack=False,
         # training_dataset_cache=False,
     )
@@ -225,7 +226,7 @@ def load_datasets():
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
         dtype=HPARAMS['dtype'],
-        drop_remainder=True,
+        drop_remainder=HPARAMS['enable_xla'],
     )
 
     class_names = HPARAMS['class_names']
@@ -278,6 +279,7 @@ def train(dataset_path='data/dataset',
     HPARAMS['tpu_address'] = tpu_address
     HPARAMS['gpu_num'] = gpu_num
     HPARAMS['batch_size'] = batch_size
+    HPARAMS['enable_xla'] = False
 
     global DATASET_PATH
     DATASET_PATH = dataset_path
@@ -286,7 +288,7 @@ def train(dataset_path='data/dataset',
     global TENSORBOARD_PATH
     TENSORBOARD_PATH = tb_path
 
-    optimize_performance(enable_xla=False)
+    optimize_performance()
 
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,
