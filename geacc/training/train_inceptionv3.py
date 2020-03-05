@@ -257,7 +257,8 @@ def train(dataset_path='data/dataset',
           tb_path=False,
           distribution_strategy='',
           tpu_address='',
-          gpu_num=0):
+          gpu_num=0,
+          batch_size=128):
     """Run InceptionV3 training and eval loop using native Keras APIs.
 
     Args:
@@ -276,6 +277,7 @@ def train(dataset_path='data/dataset',
 
     HPARAMS['tpu_address'] = tpu_address
     HPARAMS['gpu_num'] = gpu_num
+    HPARAMS['batch_size'] = batch_size
 
     global DATASET_PATH
     DATASET_PATH = dataset_path
