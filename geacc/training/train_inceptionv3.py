@@ -42,10 +42,10 @@ HPARAMS = {
 
     # Dataset params. TODO: move to dataset.info
     'class_names':              ['benign', 'explicit', 'suggestive'],
-    'train_image_files':        8000 * 3,
-    'validate_image_files':     1000 * 3,
-    'test_image_files':         1000 * 3,
-    'train_tfrecord_files':     8,
+    'train_image_files':        128 * 3,
+    'validate_image_files':     128 * 3,
+    'test_image_files':         128 * 3,
+    'train_tfrecord_files':     1,
     'validate_tfrecord_files':  1,
     'test_tfrecord_files':      1,
 }
@@ -286,7 +286,7 @@ def train(dataset_path='data/dataset',
     global TENSORBOARD_PATH
     TENSORBOARD_PATH = tb_path
 
-    optimize_performance(enable_xla=True)
+    optimize_performance(enable_xla=False)
 
     strategy = distribution_utils.get_distribution_strategy(
         distribution_strategy=distribution_strategy,

@@ -237,7 +237,7 @@ def get_parse_record_fn(use_keras_image_data_format=False, one_hot_encoding_clas
         if use_keras_image_data_format:
             if tf.keras.backend.image_data_format() == 'channels_first':
                 image = tf.transpose(image, perm=[2, 0, 1])
-        
+
         if one_hot_encoding_class_num:
             label = tf.one_hot(tf.cast(label, tf.int32), one_hot_encoding_class_num)[0]
 

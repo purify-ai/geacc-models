@@ -3,11 +3,13 @@ import geacc.training.train_inceptionv3 as model
 import argparse
 import tensorflow as tf
 
+
 def get_gpu_num():
     gpus = tf.config.list_physical_devices('GPU')
     # for gpu in gpus:
     #     print("Name:", gpu.name, " Type:", gpu.device_type)
     return len(gpus)
+
 
 def input_arguments():
     gpus_detected = get_gpu_num()
@@ -33,7 +35,7 @@ def input_arguments():
                         help="Batch size for training and evaluation. When using multiple gpus, this is the global batch size for "
                               "all devices. For example, if the batch size is 32 and there are 4 GPUs, each GPU will get 8 examples on "
                               "each step. For TPU, batch size of 1024 is recommended.")
-    
+
     args = parser.parse_args()
     return args
 
@@ -44,7 +46,7 @@ def main():
 
     model.train(dataset_path=args.dataset, model_path=args.models, tb_path=args.tensorboard, batch_size=args.batch_size,
                 distribution_strategy=args.distribution_strategy, gpu_num=args.gpu_num, tpu_address=args.tpu_address)
-    
+
 
 if __name__ == "__main__":
     # logging.set_verbosity(logging.INFO)
