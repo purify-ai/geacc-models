@@ -6,8 +6,6 @@ import tensorflow as tf
 
 def get_gpu_num():
     gpus = tf.config.list_physical_devices('GPU')
-    # for gpu in gpus:
-    #     print("Name:", gpu.name, " Type:", gpu.device_type)
     return len(gpus)
 
 
@@ -28,10 +26,10 @@ def input_arguments():
                         help="The Cloud TPU to use for training. This should be either the name "
                              "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url. Passing `local` will use the "
                              "CPU of the local instance instead. (Good for debugging.)")
-    parser.add_argument("--gpu-num", metavar="GPU", required=False, default=gpus_detected,
+    parser.add_argument("--gpu-num", metavar="GPU", required=False, default=gpus_detected, type=int,
                         help="How many GPUs to use at each worker with the DistributionStrategies API. "
                              f"The default is auto-detect on local host (detected: {gpus_detected}).")
-    parser.add_argument("-b", "--batch-size", required=False, default=128,
+    parser.add_argument("-b", "--batch-size", required=False, default=128, type=int,
                         help="Batch size for training and evaluation. When using multiple gpus, this is the global batch size for "
                               "all devices. For example, if the batch size is 32 and there are 4 GPUs, each GPU will get 8 examples on "
                               "each step. For TPU, batch size of 1024 is recommended.")
