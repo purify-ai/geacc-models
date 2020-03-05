@@ -29,7 +29,7 @@ def input_arguments():
     parser.add_argument("--gpu-num", metavar="GPU", required=False, default=gpus_detected,
                         help="How many GPUs to use at each worker with the DistributionStrategies API. "
                              f"The default is auto-detect on local host (detected: {gpus_detected}).")
-    parser.add_argument("-b", "--batch-size", required=False, default=128
+    parser.add_argument("-b", "--batch-size", required=False, default=128,
                         help="Batch size for training and evaluation. When using multiple gpus, this is the global batch size for "
                               "all devices. For example, if the batch size is 32 and there are 4 GPUs, each GPU will get 8 examples on "
                               "each step. For TPU, batch size of 1024 is recommended.")
