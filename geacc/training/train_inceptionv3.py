@@ -277,7 +277,7 @@ def train(dataset_path='data/dataset',
         model.compile(
             optimizer=get_optimizer(HPARAMS),
             loss=tf.losses.CategoricalCrossentropy(),
-            metrics=[tf.metrics.CategoricalAccuracy(), tf.metrics.AUC()]
+            metrics=[tf.metrics.CategoricalAccuracy(), tf.metrics.AUC(), tf.metrics.Precision(), tf.metrics.Recall()]
         )
 
     print('Starting training')
