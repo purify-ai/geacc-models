@@ -26,7 +26,8 @@ from . import distribution_utils
 # Consts
 IMG_SIZE = 299
 OUTPUT_CLASSES_NUM = 3
-OUTPUT_MODEL_PREFIX = f"Geacc_InceptionV3_{int(time())}"
+OUTPUT_PREFIX = "Geacc_InceptionV3_"
+OUTPUT_ID = ""
 HPARAMS = {}
 
 
@@ -88,23 +89,21 @@ def init_callbacks():
     use_callbacks = []
 
     # Checkpoint
-    checkpoint_file = os.path.join(HPARAMS['models_path'], OUTPUT_MODEL_PREFIX + "_ep{epoch:02d}_vl{val_loss:.2f}.tf")
+    checkpoint_file = os.path.join(HPARAMS['models_path'], OUTPUT_PREFIX + OUTPUT_ID + "_ep{epoch:02d}_vl{val_loss:.2f}.tf")
     checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_file, monitor='val_loss', verbose=1, save_best_only=False)
     use_callbacks.append(checkpointer)
 
     # Early stopping
-    # early_stop = tf.keras.callbacks.EarlyStopping(
-    #     monitor='val_loss', min_delta=0.001, patience=10)
+    # early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10)
     # use_callbacks.append(early_stop)
 
     # learning rate schedule
-    lr_scheduler = tf.keras.callbacks.LearningRateScheduler(
-        step_decay_schedule)
+    lr_scheduler = tf.keras.callbacks.LearningRateScheduler(step_decay_schedule)
     use_callbacks.append(lr_scheduler)
 
     # Tensorboard logs
     if (HPARAMS['tb_path']):
-        tb_logs_dir = os.path.join(HPARAMS['tb_path'], OUTPUT_MODEL_PREFIX)
+        tb_logs_dir = os.path.join(HPARAMS['tb_path'], OUTPUT_PREFIX + OUTPUT_ID)
         print('TensorBoard events:', tb_logs_dir)
 
         # Capture hyperparameters in Tensorboard
@@ -234,6 +233,9 @@ def train(hparams=None):
 
     global HPARAMS
     HPARAMS = hparams
+    
+    global OUTPUT_ID
+    OUTPUT_ID = str(int(time()))
 
     optimize_performance()
 
@@ -270,4 +272,4 @@ def train(hparams=None):
     )
 
     # Save final model
-    model.save(os.path.join(HPARAMS['models_path'], OUTPUT_MODEL_PREFIX + "_final.tf"))
+    model.save(os.path.join(HPARAMS['models_path'], OUTPUT_PREFIX + OUTPUT_ID + "_final.tf"))
