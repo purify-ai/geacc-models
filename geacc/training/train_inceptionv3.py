@@ -23,38 +23,11 @@ from . import project_path
 from . import image_preprocessing
 from . import distribution_utils
 
-# Hyperparameters
+# Consts
 IMG_SIZE = 299
 OUTPUT_CLASSES_NUM = 3
-
-HPARAMS = {
-    # Training related
-    'optimizer':        'adam',  # 'sgd' or 'adam'
-    'momentum':         0.9,     # for SGD
-    'learning_rate':    0.0005,   # for Adam
-    'batch_size':       128,
-    'total_epochs':     30,
-    'frozen_layer_num': 168,
-
-    # Other params
-    'tpu_address':      False,
-    'gpu_num':          0,
-
-    # Dataset params. TODO: move to dataset.info
-    'class_names':              ['benign', 'explicit', 'suggestive'],
-    'train_image_files':        8000 * 3,
-    'validate_image_files':     1000 * 3,
-    'test_image_files':         1000 * 3,
-    'train_tfrecord_files':     8,
-    'validate_tfrecord_files':  1,
-    'test_tfrecord_files':      1,
-}
-
-# Other Consts
 OUTPUT_MODEL_PREFIX = f"Geacc_InceptionV3_{int(time())}"
-DATASET_PATH = 'data/dataset'
-OUTPUT_PATH = 'data/models'
-TENSORBOARD_PATH = False
+HPARAMS = {}
 
 
 # %%
@@ -92,11 +65,8 @@ def step_decay_schedule(epoch):
         return .0000009
 
 
-def get_optimizer(hparams):
+def get_optimizer():
     """Returns optimizer.
-
-    Args:
-      hparams: hyper parameters.
 
     Raises:
       ValueError: if type of optimizer specified in hparams is incorrect.
@@ -104,13 +74,12 @@ def get_optimizer(hparams):
     Returns:
       Instance of optimizer class.
     """
-    if hparams['optimizer'] == 'sgd':
-        optimizer = tf.keras.optimizers.SGD(momentum=hparams['momentum'])
-    elif hparams['optimizer'] == 'adam':
-        optimizer = tf.keras.optimizers.Adam(lr=hparams['learning_rate'])
+    if HPARAMS['optimizer'] == 'sgd':
+        optimizer = tf.keras.optimizers.SGD(momentum=HPARAMS['momentum'])
+    elif HPARAMS['optimizer'] == 'adam':
+        optimizer = tf.keras.optimizers.Adam(lr=HPARAMS['learning_rate'])
     else:
-        raise ValueError('Invalid value of optimizer: %s' %
-                         hparams['optimizer'])
+        raise ValueError('Invalid value of optimizer: %s' % HPARAMS['optimizer'])
     return optimizer
 
 
@@ -119,10 +88,8 @@ def init_callbacks():
     use_callbacks = []
 
     # Checkpoint
-    checkpoint_file = os.path.join(
-        OUTPUT_PATH, OUTPUT_MODEL_PREFIX + "_ep{epoch:02d}_vl{val_loss:.2f}.tf")
-    checkpointer = tf.keras.callbacks.ModelCheckpoint(
-        filepath=checkpoint_file, monitor='val_loss', verbose=1, save_best_only=False)
+    checkpoint_file = os.path.join(HPARAMS['models_path'], OUTPUT_MODEL_PREFIX + "_ep{epoch:02d}_vl{val_loss:.2f}.tf")
+    checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_file, monitor='val_loss', verbose=1, save_best_only=False)
     use_callbacks.append(checkpointer)
 
     # Early stopping
@@ -136,8 +103,8 @@ def init_callbacks():
     use_callbacks.append(lr_scheduler)
 
     # Tensorboard logs
-    if (TENSORBOARD_PATH):
-        tb_logs_dir = os.path.join(TENSORBOARD_PATH, OUTPUT_MODEL_PREFIX)
+    if (HPARAMS['tb_path']):
+        tb_logs_dir = os.path.join(HPARAMS['tb_path'], OUTPUT_MODEL_PREFIX)
         print('TensorBoard events:', tb_logs_dir)
 
         # Capture hyperparameters in Tensorboard
@@ -186,21 +153,21 @@ def optimize_performance():
         tf.config.optimizer.set_jit(True)
 
     # Use mixed precision when available
-    if HPARAMS['tpu_address']:
-        # TODO: Need to investigate errors introduced by 'mixed_bfloat16', fallback to FP32.
-        policy = 'mixed_bfloat16'
-        dtype = tf.bfloat16
-    elif HPARAMS['gpu_num']:
-        policy = 'mixed_float16'
-        dtype = tf.float16
-    else:
-        policy = 'float32'
-        dtype = tf.float32
+    if HPARAMS['enable_mixed_precision']:
+        if HPARAMS['tpu_address']:
+            policy = 'mixed_bfloat16'
+            dtype = tf.bfloat16
+        elif HPARAMS['gpu_num']:
+            policy = 'mixed_float16'
+            dtype = tf.float16
+        else:
+            policy = 'float32'
+            dtype = tf.float32
 
-    print(f"Setting mixed precision policy to {policy}.")
-    tf.keras.mixed_precision.experimental.set_policy(policy)
-    HPARAMS['mixed_precision_policy'] = policy
-    HPARAMS['dtype'] = dtype
+        print(f"Setting mixed precision policy to {policy}.")
+        tf.keras.mixed_precision.experimental.set_policy(policy)
+        HPARAMS['mixed_precision_policy'] = policy
+        HPARAMS['dtype'] = dtype
 
 
 # %%
@@ -208,7 +175,7 @@ def optimize_performance():
 def load_datasets():
     train_input_dataset = image_preprocessing.input_fn(
         is_training = True,
-        filenames   = get_filenames(is_training=True, data_dir=DATASET_PATH),
+        filenames   = get_filenames(is_training=True, data_dir=HPARAMS['dataset_path']),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -221,7 +188,7 @@ def load_datasets():
 
     validate_input_dataset = image_preprocessing.input_fn(
         is_training = False,
-        filenames   = get_filenames(is_training=True, data_dir=DATASET_PATH),
+        filenames   = get_filenames(is_training=False, data_dir=HPARAMS['dataset_path']),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -253,22 +220,11 @@ def load_checkpoint(checkpoint_file, model):
         # count = initial_epoch*batches_per_epoch
 
 
-def train(dataset_path='data/dataset',
-          model_path='data/model',
-          tb_path=False,
-          distribution_strategy='',
-          tpu_address='',
-          gpu_num=0,
-          batch_size=128):
+def train(hparams=None):
     """Run InceptionV3 training and eval loop using native Keras APIs.
 
     Args:
-        dataset_path: Path to TFRecord data files for input
-        model_path: Path for model output
-        tb_path: TensorBoard log dir
-        distribution_strategy: ...
-        HPARAMS['tpu_address']: TPU address. TPU will not be used if not set.
-        gpu_num: Number of GPUs.
+        hparams: Model hyperparameters and other arguments
     Raises:
         ValueError: If fp16 is passed as it is not currently supported.
         NotImplementedError: If some features are not currently supported.
@@ -276,23 +232,13 @@ def train(dataset_path='data/dataset',
         Dictionary of training and eval stats.
     """
 
-    HPARAMS['tpu_address'] = tpu_address
-    HPARAMS['gpu_num'] = gpu_num
-    HPARAMS['batch_size'] = batch_size
-    HPARAMS['enable_xla'] = False
-    HPARAMS['dtype'] = tf.float32
+    global HPARAMS
+    HPARAMS = hparams
 
-    global DATASET_PATH
-    DATASET_PATH = dataset_path
-    global OUTPUT_PATH
-    OUTPUT_PATH = model_path
-    global TENSORBOARD_PATH
-    TENSORBOARD_PATH = tb_path
-
-    #optimize_performance()
+    optimize_performance()
 
     strategy = distribution_utils.get_distribution_strategy(
-        distribution_strategy=distribution_strategy,
+        distribution_strategy=HPARAMS['distribution_strategy'],
         num_gpus=HPARAMS['gpu_num'],
         tpu_address=HPARAMS['tpu_address'])
 
@@ -306,7 +252,7 @@ def train(dataset_path='data/dataset',
         model.summary()
 
         model.compile(
-            optimizer=get_optimizer(HPARAMS),
+            optimizer=get_optimizer(),
             loss=tf.losses.CategoricalCrossentropy(),
             metrics=[tf.metrics.CategoricalAccuracy(), tf.metrics.AUC(), tf.metrics.Precision(), tf.metrics.Recall()]
         )
@@ -320,8 +266,8 @@ def train(dataset_path='data/dataset',
         validation_data=validate_input_dataset,
         validation_steps=steps_validate,
         callbacks=init_callbacks(),
-        #verbose=2
+        # verbose=2
     )
 
     # Save final model
-    model.save(os.path.join(OUTPUT_PATH, OUTPUT_MODEL_PREFIX + "_final.tf"))
+    model.save(os.path.join(HPARAMS['models_path'], OUTPUT_MODEL_PREFIX + "_final.tf"))

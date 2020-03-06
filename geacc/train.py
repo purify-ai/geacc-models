@@ -4,6 +4,36 @@ import argparse
 import tensorflow as tf
 
 
+HPARAMS = {
+    # Training hyperparameters
+    'optimizer':        'adam',  # 'sgd' or 'adam'
+    'momentum':         0.9,     # for SGD
+    'learning_rate':    0.0005,   # for Adam
+    'batch_size':       128,
+    'total_epochs':     30,
+    'frozen_layer_num': 168,
+
+    # Other params
+    'tpu_address':              False,
+    'gpu_num':                  0,
+    'enable_xla':               False,
+    'enable_mixed_precision':   False,
+    'dtype':                    tf.float32,
+
+    # Dataset params. TODO: move to dataset.info
+    'class_names':              ['benign', 'explicit', 'suggestive'],
+    'train_image_files':        8000 * 3,
+    'validate_image_files':     1000 * 3,
+    'test_image_files':         1000 * 3,
+    'train_tfrecord_files':     8,
+    'validate_tfrecord_files':  1,
+    'test_tfrecord_files':      1,
+    'dataset_path':             'data/dataset',
+    'models_path':              'data/models',
+    'tb_path':                  'tb_logs',
+}
+
+
 def get_gpu_num():
     gpus = tf.config.list_physical_devices('GPU')
     return len(gpus)
@@ -42,8 +72,15 @@ def main():
     args = input_arguments()
     print('Tensorflow version: ', tf.__version__)
 
-    model.train(dataset_path=args.dataset, model_path=args.models, tb_path=args.tensorboard, batch_size=args.batch_size,
-                distribution_strategy=args.distribution_strategy, gpu_num=args.gpu_num, tpu_address=args.tpu_address)
+    HPARAMS['dataset_path'] = args.dataset
+    HPARAMS['models_path'] = args.models
+    HPARAMS['tb_path'] = args.tensorboard
+    HPARAMS['batch_size'] = args.batch_size
+    HPARAMS['distribution_strategy'] = args.distribution_strategy
+    HPARAMS['gpu_num'] = args.gpu_num
+    HPARAMS['tpu_address'] = args.tpu_address
+
+    model.train(HPARAMS)
 
 
 if __name__ == "__main__":
