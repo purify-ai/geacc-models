@@ -31,8 +31,8 @@ HPARAMS = {
     # Training related
     'optimizer':        'adam',  # 'sgd' or 'adam'
     'momentum':         0.9,     # for SGD
-    'learning_rate':    0.002,   # for Adam
-    'batch_size':       1024,
+    'learning_rate':    0.0005,   # for Adam
+    'batch_size':       128,
     'total_epochs':     30,
     'frozen_layer_num': 168,
 
