@@ -19,6 +19,7 @@ HPARAMS = {
     'enable_xla':               False,
     'enable_mixed_precision':   False,
     'dtype':                    tf.float32,
+    'distribution_strategy':    'off',
 
     # Dataset params. TODO: move to dataset.info
     'class_names':              ['benign', 'explicit', 'suggestive'],

@@ -38,7 +38,7 @@ def get_filenames(is_training, data_dir):
             os.path.join(data_dir, 'train-{:05d}-of-{:05d}'.format(i, HPARAMS['train_tfrecord_files'])) for i in range(HPARAMS['train_tfrecord_files'])]
     else:
         filenames = [
-            os.path.join(data_dir, 'validation-{:05d}-of-{:05d}'.format(i, HPARAMS['validate_tfrecord_files'])) for i in range(HPARAMS['validate_image_files'])]
+            os.path.join(data_dir, 'validation-{:05d}-of-{:05d}'.format(i, HPARAMS['validate_tfrecord_files'])) for i in range(HPARAMS['validate_tfrecord_files'])]
 
     if HPARAMS['tpu_address'] and not distribution_utils.tpu_compatible_files(filenames):
         raise Exception("TPU requires files stored in Google Cloud Storage (GCS) buckets.")
