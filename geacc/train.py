@@ -81,7 +81,7 @@ def main():
     HPARAMS['gpu_num'] = args.gpu_num
     HPARAMS['tpu_address'] = args.tpu_address
 
-    model.train(HPARAMS)
+    model.run(HPARAMS)
 
 
 if __name__ == "__main__":

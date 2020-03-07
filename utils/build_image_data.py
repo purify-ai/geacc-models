@@ -38,10 +38,10 @@ a sharded data set consisting of TFRecord files
 
 and
 
-  validation_directory/validation-00000-of-00128
-  validation_directory/validation-00001-of-00128
+  validation_directory/validate-00000-of-00128
+  validation_directory/validate-00001-of-00128
   ...
-  validation_directory/validation-00127-of-00128
+  validation_directory/validate-00127-of-00128
 
 where we have selected 1024 and 128 shards for each data set. Each record
 within the TFRecord file is a serialized Example proto. The Example proto
@@ -82,14 +82,17 @@ from absl import flags
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('train_directory', '/tmp/', 'Training data directory')
-flags.DEFINE_string('validation_directory', '/tmp/', 'Validation data directory')
+flags.DEFINE_string('train_directory', '', 'Training data directory')
+flags.DEFINE_string('validation_directory', '', 'Validation data directory')
+flags.DEFINE_string('test_directory', '', 'Test data directory')
 flags.DEFINE_string('output_directory', '/tmp/', 'Output data directory')
 
 flags.DEFINE_integer('train_shards', 2,
                      'Number of shards in training TFRecord files.')
 flags.DEFINE_integer('validation_shards', 2,
                      'Number of shards in validation TFRecord files.')
+flags.DEFINE_integer('test_shards', 2,
+                     'Number of shards in test TFRecord files.')
 flags.DEFINE_integer('num_threads', 2,
                      'Number of threads to preprocess the images.')
 
@@ -395,10 +398,12 @@ def main(argv):
     print('Saving results to %s' % FLAGS.output_directory)
 
     # Run it!
-    _process_dataset('validation', FLAGS.validation_directory,
-                     FLAGS.validation_shards, FLAGS.labels_file)
-    _process_dataset('train', FLAGS.train_directory,
-                     FLAGS.train_shards, FLAGS.labels_file)
+    if FLAGS.validation_directory:
+        _process_dataset('validate', FLAGS.validation_directory, FLAGS.validation_shards, FLAGS.labels_file)
+    if FLAGS.train_directory:
+        _process_dataset('train', FLAGS.train_directory, FLAGS.train_shards, FLAGS.labels_file)
+    if FLAGS.test_directory:
+        _process_dataset('test', FLAGS.test_directory, FLAGS.test_shards, FLAGS.labels_file)
 
 
 if __name__ == '__main__':

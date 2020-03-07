@@ -28,18 +28,20 @@ IMG_SIZE = 299
 OUTPUT_CLASSES_NUM = 3
 OUTPUT_PREFIX = "Geacc_InceptionV3_"
 OUTPUT_ID = ""
+TB_SUMMARY = "summary"
 HPARAMS = {}
 
 
 # %%
-def get_filenames(is_training, data_dir):
-    """Get TFRecord filenames for dataset."""
-    if is_training:
-        filenames = [
-            os.path.join(data_dir, 'train-{:05d}-of-{:05d}'.format(i, HPARAMS['train_tfrecord_files'])) for i in range(HPARAMS['train_tfrecord_files'])]
-    else:
-        filenames = [
-            os.path.join(data_dir, 'validation-{:05d}-of-{:05d}'.format(i, HPARAMS['validate_tfrecord_files'])) for i in range(HPARAMS['validate_tfrecord_files'])]
+def get_filenames(data_dir, data_subset):
+    """Get TFRecord filenames for dataset.
+    
+    Args:
+        data_subset: Dataset type "train", "validate" or "test"
+    """
+    filenames = [
+        os.path.join(data_dir, '{}-{:05d}-of-{:05d}'.format(data_subset, i, HPARAMS[f'{data_subset}_tfrecord_files'])) 
+            for i in range(HPARAMS[f'{data_subset}_tfrecord_files'])]
 
     if HPARAMS['tpu_address'] and not distribution_utils.tpu_compatible_files(filenames):
         raise Exception("TPU requires files stored in Google Cloud Storage (GCS) buckets.")
@@ -98,8 +100,9 @@ def init_callbacks():
     # use_callbacks.append(early_stop)
 
     # learning rate schedule
-    lr_scheduler = tf.keras.callbacks.LearningRateScheduler(step_decay_schedule)
-    use_callbacks.append(lr_scheduler)
+    if HPARAMS['optimizer'] == 'sgd':
+        lr_scheduler = tf.keras.callbacks.LearningRateScheduler(step_decay_schedule)
+        use_callbacks.append(lr_scheduler)
 
     # Tensorboard logs
     if (HPARAMS['tb_path']):
@@ -107,9 +110,8 @@ def init_callbacks():
         print('TensorBoard events:', tb_logs_dir)
 
         # Capture hyperparameters in Tensorboard
-        with tf.summary.create_file_writer(tb_logs_dir + "/hparams").as_default():
-            tensor = tf.stack([tf.convert_to_tensor([k, str(v)])
-                                    for k, v in HPARAMS.items()])
+        with tf.summary.create_file_writer(tb_logs_dir + "/" + TB_SUMMARY).as_default():
+            tensor = tf.stack([tf.convert_to_tensor([k, str(v)]) for k, v in HPARAMS.items()])
             tf.summary.text("Hyperparameters", tensor, step=0)
 
         tensorboard = tf.keras.callbacks.TensorBoard(log_dir=tb_logs_dir)
@@ -174,7 +176,7 @@ def optimize_performance():
 def load_datasets():
     train_input_dataset = image_preprocessing.input_fn(
         is_training = True,
-        filenames   = get_filenames(is_training=True, data_dir=HPARAMS['dataset_path']),
+        filenames   = get_filenames(data_subset="train", data_dir=HPARAMS['dataset_path']),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -187,7 +189,7 @@ def load_datasets():
 
     validate_input_dataset = image_preprocessing.input_fn(
         is_training = False,
-        filenames   = get_filenames(is_training=False, data_dir=HPARAMS['dataset_path']),
+        filenames   = get_filenames(data_subset="validate", data_dir=HPARAMS['dataset_path']),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -219,23 +221,8 @@ def load_checkpoint(checkpoint_file, model):
         # count = initial_epoch*batches_per_epoch
 
 
-def train(hparams=None):
-    """Run InceptionV3 training and eval loop using native Keras APIs.
-
-    Args:
-        hparams: Model hyperparameters and other arguments
-    Raises:
-        ValueError: If fp16 is passed as it is not currently supported.
-        NotImplementedError: If some features are not currently supported.
-    Returns:
-        Dictionary of training and eval stats.
-    """
-
-    global HPARAMS
-    HPARAMS = hparams
-    
-    global OUTPUT_ID
-    OUTPUT_ID = str(int(time()))
+def train():
+    """Run InceptionV3 training."""
 
     optimize_performance()
 
@@ -273,3 +260,61 @@ def train(hparams=None):
 
     # Save final model
     model.save(os.path.join(HPARAMS['models_path'], OUTPUT_PREFIX + OUTPUT_ID + "_final.tf"))
+
+    return model
+
+
+def eval(model):
+    """Run InceptionV3 model evaluation."""
+
+    print("\nEvaluating final model using test dataset...")
+
+    test_input_dataset = image_preprocessing.input_fn(
+        is_training = False,
+        filenames   = get_filenames(data_subset="test", data_dir=HPARAMS['dataset_path']),
+        batch_size  = HPARAMS['batch_size'],
+        num_epochs  = HPARAMS['total_epochs'],
+        parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
+        dtype=HPARAMS['dtype'],
+        drop_remainder=HPARAMS['enable_xla'],
+    )
+
+    steps_test = HPARAMS['test_image_files'] // HPARAMS['batch_size']
+    print(f"Steps on test: {steps_test}")
+
+    eval_output = model.evaluate(
+        test_input_dataset,
+        steps=steps_test,
+        # verbose=2
+    )
+
+    eval_stats = {
+        'loss': float(eval_output[0]),
+        'accuracy': float(eval_output[1])
+    }
+
+    print("Evaluation results for test dataset: Loss={0:.4f} Accuracy={1:.4f}".format(eval_stats['loss'], eval_stats['accuracy']))
+
+    # Capture results in Tensorboard
+    if (HPARAMS['tb_path']):
+        tb_logs_dir = os.path.join(HPARAMS['tb_path'], OUTPUT_PREFIX + OUTPUT_ID)
+        with tf.summary.create_file_writer(tb_logs_dir + "/" + TB_SUMMARY).as_default():
+            tensor = tf.stack([tf.convert_to_tensor([k, str(v)]) for k, v in eval_stats.items()])
+            tf.summary.text("Evaluation Results (Test dataset)", tensor)
+
+
+def run(hparams=None):
+    """InveptionV3
+
+    Args:
+        hparams: Model hyperparameters and other arguments
+    """
+
+    global HPARAMS
+    HPARAMS = hparams
+    
+    global OUTPUT_ID
+    OUTPUT_ID = str(int(time()))
+
+    model = train()
+    eval(model)
