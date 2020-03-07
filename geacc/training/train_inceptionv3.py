@@ -300,7 +300,7 @@ def eval(model):
         tb_logs_dir = os.path.join(HPARAMS['tb_path'], OUTPUT_PREFIX + OUTPUT_ID)
         with tf.summary.create_file_writer(tb_logs_dir + "/" + TB_SUMMARY).as_default():
             tensor = tf.stack([tf.convert_to_tensor([k, str(v)]) for k, v in eval_stats.items()])
-            tf.summary.text("Evaluation Results (Test dataset)", tensor)
+            tf.summary.text("Evaluation Results (Test dataset)", tensor, step=HPARAMS['total_epochs']+1)
 
 
 def run(hparams=None):
@@ -312,7 +312,7 @@ def run(hparams=None):
 
     global HPARAMS
     HPARAMS = hparams
-    
+
     global OUTPUT_ID
     OUTPUT_ID = str(int(time()))
 
