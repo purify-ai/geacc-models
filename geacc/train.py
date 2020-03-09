@@ -71,7 +71,7 @@ def input_arguments():
 
 def main():
     args = input_arguments()
-    print('Tensorflow version: ', tf.__version__)
+    print('TensorFlow version: ', tf.__version__)
 
     HPARAMS['dataset_path'] = args.dataset
     HPARAMS['models_path'] = args.models

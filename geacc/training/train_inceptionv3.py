@@ -138,8 +138,8 @@ def build_model():
         model = tf.keras.Sequential([
             pretrained_model,
             tf.keras.layers.GlobalAveragePooling2D(),
-            tf.keras.layers.Dense(1024, activation='relu'),
-            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax')
+            #tf.keras.layers.Dense(1024, activation='relu'),
+            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')
         ])
     else:
         model = tf.keras.Sequential([
@@ -149,7 +149,7 @@ def build_model():
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.Activation('relu'),
             tf.keras.layers.Dropout(.5),
-            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax')
+            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')
         ])
 
     return model
