@@ -120,7 +120,6 @@ def init_callbacks():
     return use_callbacks
 
 
-# %%
 # Build InceptionV3 model
 def build_model():
     tf.keras.backend.clear_session()
@@ -135,15 +134,23 @@ def build_model():
     for layer in pretrained_model.layers[:HPARAMS['frozen_layer_num']]:
         layer.trainable = False
 
-    model = tf.keras.Sequential([
-        pretrained_model,
-        tf.keras.layers.GlobalAveragePooling2D(),
-        tf.keras.layers.Dense(4096),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(.5),
-        tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax')
-    ])
+    if HPARAMS['model_variant'] == v2:
+        model = tf.keras.Sequential([
+            pretrained_model,
+            tf.keras.layers.GlobalAveragePooling2D(),
+            tf.keras.layers.Dense(1024, activation='relu'),
+            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax')
+        ])
+    else:
+        model = tf.keras.Sequential([
+            pretrained_model,
+            tf.keras.layers.GlobalAveragePooling2D(),
+            tf.keras.layers.Dense(4096),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Activation('relu'),
+            tf.keras.layers.Dropout(.5),
+            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax')
+        ])
 
     return model
 
