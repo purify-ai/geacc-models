@@ -134,7 +134,7 @@ def build_model():
     for layer in pretrained_model.layers[:HPARAMS['frozen_layer_num']]:
         layer.trainable = False
 
-    if HPARAMS['model_variant'] == 'v2':
+    if HPARAMS['model_variant'] == 2:
         model = tf.keras.Sequential([
             pretrained_model,
             tf.keras.layers.GlobalAveragePooling2D(),
