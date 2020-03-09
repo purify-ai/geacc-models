@@ -32,15 +32,14 @@ TB_SUMMARY = "summary"
 HPARAMS = {}
 
 
-# %%
-def get_filenames(data_dir, data_subset):
+def get_filenames(data_subset):
     """Get TFRecord filenames for dataset.
-    
+
     Args:
         data_subset: Dataset type "train", "validate" or "test"
     """
     filenames = [
-        os.path.join(data_dir, '{}-{:05d}-of-{:05d}'.format(data_subset, i, HPARAMS[f'{data_subset}_tfrecord_files'])) 
+        os.path.join(HPARAMS['dataset_path'], '{}-{:05d}-of-{:05d}'.format(data_subset, i, HPARAMS[f'{data_subset}_tfrecord_files']))
             for i in range(HPARAMS[f'{data_subset}_tfrecord_files'])]
 
     if HPARAMS['tpu_address'] and not distribution_utils.tpu_compatible_files(filenames):
@@ -49,8 +48,8 @@ def get_filenames(data_dir, data_subset):
     return filenames
 
 
-# Slow down training deeper into dataset
 def step_decay_schedule(epoch):
+    '''Slow down training deeper into dataset.'''
     if epoch < 2:
         # Warmup model first
         return .0000032
@@ -120,37 +119,25 @@ def init_callbacks():
     return use_callbacks
 
 
-# Build InceptionV3 model
 def build_model():
+    '''Build InceptionV3 model.'''
     tf.keras.backend.clear_session()
 
     pretrained_model = tf.keras.applications.InceptionV3(
         weights='imagenet',
-        include_top=False,
+        include_top=False, 
+        pooling='avg',
         input_shape=(IMG_SIZE, IMG_SIZE, 3)
     )
 
-    # Freeze bottom layers
+    # Freeze bottom N layers
     for layer in pretrained_model.layers[:HPARAMS['frozen_layer_num']]:
         layer.trainable = False
 
-    if HPARAMS['model_variant'] == 2:
-        model = tf.keras.Sequential([
-            pretrained_model,
-            tf.keras.layers.GlobalAveragePooling2D(),
-            #tf.keras.layers.Dense(1024, activation='relu'),
-            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')
-        ])
-    else:
-        model = tf.keras.Sequential([
-            pretrained_model,
-            tf.keras.layers.GlobalAveragePooling2D(),
-            tf.keras.layers.Dense(4096),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Activation('relu'),
-            tf.keras.layers.Dropout(.5),
-            tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')
-        ])
+    model = tf.keras.Sequential([
+        pretrained_model,
+        tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')
+    ])
 
     return model
 
@@ -178,12 +165,11 @@ def optimize_performance():
         HPARAMS['dtype'] = dtype
 
 
-# %%
-# Prepare images for training
 def load_datasets():
+    '''Prepare images for training.'''
     train_input_dataset = image_preprocessing.input_fn(
         is_training = True,
-        filenames   = get_filenames(data_subset="train", data_dir=HPARAMS['dataset_path']),
+        filenames   = get_filenames(data_subset="train"),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -196,7 +182,7 @@ def load_datasets():
 
     validate_input_dataset = image_preprocessing.input_fn(
         is_training = False,
-        filenames   = get_filenames(data_subset="validate", data_dir=HPARAMS['dataset_path']),
+        filenames   = get_filenames(data_subset="validate"),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -278,7 +264,7 @@ def eval(model):
 
     test_input_dataset = image_preprocessing.input_fn(
         is_training = False,
-        filenames   = get_filenames(data_subset="test", data_dir=HPARAMS['dataset_path']),
+        filenames   = get_filenames(data_subset="test"),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
         parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
@@ -307,7 +293,7 @@ def eval(model):
         tb_logs_dir = os.path.join(HPARAMS['tb_path'], OUTPUT_PREFIX + OUTPUT_ID)
         with tf.summary.create_file_writer(tb_logs_dir + "/" + TB_SUMMARY).as_default():
             tensor = tf.stack([tf.convert_to_tensor([k, str(v)]) for k, v in eval_stats.items()])
-            tf.summary.text("Evaluation Results (Test dataset)", tensor, step=HPARAMS['total_epochs']+1)
+            tf.summary.text("Evaluation Results (Test dataset)", tensor, step=HPARAMS['total_epochs'] + 1)
 
 
 def run(hparams=None):
