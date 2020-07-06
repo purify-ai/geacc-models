@@ -19,7 +19,6 @@ import os
 from time import time
 
 import tensorflow as tf
-from . import project_path
 from . import image_preprocessing
 from . import distribution_utils
 
@@ -125,7 +124,7 @@ def build_model():
 
     pretrained_model = tf.keras.applications.InceptionV3(
         weights='imagenet',
-        include_top=False, 
+        include_top=False,
         pooling='avg',
         input_shape=(IMG_SIZE, IMG_SIZE, 3)
     )
@@ -134,10 +133,9 @@ def build_model():
     for layer in pretrained_model.layers[:HPARAMS['frozen_layer_num']]:
         layer.trainable = False
 
-    model = tf.keras.Sequential([
-        pretrained_model,
-        tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')
-    ])
+    x = pretrained_model.output
+    output_tensor = tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')(x)
+    model = tf.keras.models.Model(inputs=pretrained_model.input, outputs=output_tensor)
 
     return model
 
