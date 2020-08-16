@@ -182,6 +182,7 @@ def init_callbacks():
 class BinaryCrossentropyIsExplicitOnly(tf.keras.losses.BinaryCrossentropy):
     def call(self, y_true, y_pred):
         # Modify input here
+        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
         return super().call(y_true, y_pred)
 
 
@@ -211,13 +212,13 @@ def build_model():
     output = tf.keras.layers.Dense(
         units=len(HPARAMS['class_names']), activation='softmax', name='predictions')(x)
 
-    # output_binary_explicit = tf.keras.layers.Dense(
-    #     units=1, activation='sigmoid', name='binary_explicit_output')(x)
-    # output_binary_suggestive_and_explicit = tf.keras.layers.Dense(
-    #     units=1, activation='sigmoid', name='binary_suggestive_and_explicit_output')(x)
+    output_binary_explicit_only = tf.keras.layers.Dense(
+        units=1, activation='sigmoid', name='binary_explicit_only_output')(x)
+    # output_binary_explicit_and_suggestive = tf.keras.layers.Dense(
+    #     units=1, activation='sigmoid', name='binary_explicit_and_suggestive_output')(x)
 
-    output_binary_explicit_only = tf.keras.layers.Lambda(
-        lambda x: x[..., 1:2])(output)  # is explicit
+    # output_binary_explicit_only = tf.keras.layers.Lambda(
+    #     lambda x: x[..., 1:2])(output)  # is explicit
     # output_binary_explicit_and_suggestive = tf.keras.layers.Lambda(
     #     lambda x: 1 - x[..., :1])(output)  # is not benign
 
@@ -256,7 +257,7 @@ def train():
 
         model.compile(
             optimizer=get_optimizer(),
-            loss=['binary_crossentropy'],
+            loss=[BinaryCrossentropyIsExplicitOnly()],
             metrics=tf.metrics.BinaryAccuracy()
             # loss={
             #     'binary_explicit_output': BinaryCrossentropyForExplicitOnly(),
