@@ -218,11 +218,12 @@ def build_model():
 
     output_binary_explicit_only = tf.keras.layers.Lambda(
         lambda x: x[..., 1:2])(output)  # is explicit
-    output_binary_explicit_and_suggestive = tf.keras.layers.Lambda(
-        lambda x: 1 - x[..., :1])(output)  # is not benign
+    # output_binary_explicit_and_suggestive = tf.keras.layers.Lambda(
+    #     lambda x: 1 - x[..., :1])(output)  # is not benign
 
     model = tf.keras.models.Model(inputs=pretrained_model.input, outputs=[
-                                  output_binary_explicit_only, output_binary_explicit_and_suggestive])
+                                  output_binary_explicit_only  # ,output_binary_explicit_and_suggestive
+                                  ])
 
     # for layer in model.layers:
     #     if layer.trainable is False:
@@ -255,7 +256,7 @@ def train():
 
         model.compile(
             optimizer=get_optimizer(),
-            loss=['binary_crossentropy', 'binary_crossentropy'],
+            loss=['binary_crossentropy'],
             metrics=tf.metrics.BinaryAccuracy()
             # loss={
             #     'binary_explicit_output': BinaryCrossentropyForExplicitOnly(),
