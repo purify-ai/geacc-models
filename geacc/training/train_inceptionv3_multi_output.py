@@ -190,6 +190,13 @@ class BinaryCrossentropyIsExplicitOnly(tf.keras.losses.BinaryCrossentropy):
         return super().call(y_true, y_pred)
 
 
+class CategoricalAccuracyIsExplicitOnly(tf.metrics.CategoricalAccuracy):
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # Modify input here
+        y_true = tf.one_hot(tf.map_fn(fn=lambda x: x[1], elems=tf.cast(y_true, tf.int32)), depth=2, dtype=tf.float32)
+        return super().update_state(y_true, y_pred, sample_weight)
+
+
 class CategoricalCrossentropyIsExplicitOnly(tf.keras.losses.CategoricalCrossentropy):
     def call(self, y_true, y_pred):
         # Modify input here
@@ -220,8 +227,8 @@ def build_model():
 
     x = pretrained_model.output
 
-    output = tf.keras.layers.Dense(
-        units=len(HPARAMS['class_names']), activation='softmax', name='predictions')(x)
+    # output = tf.keras.layers.Dense(
+    #     units=len(HPARAMS['class_names']), activation='softmax', name='predictions')(x)
 
     output_binary_explicit_only = tf.keras.layers.Dense(
         units=2, activation='softmax', name='binary_explicit_only_output')(x)
@@ -263,7 +270,7 @@ def train():
     train_input_dataset, validate_input_dataset, steps_train, steps_validate = load_datasets()
 
     # Set of metrics to monitor for each output
-    metrics_set = [tf.metrics.CategoricalAccuracy(), tf.metrics.AUC(), tf.metrics.Precision(), tf.metrics.Recall()]
+    # metrics_set = [tf.metrics.CategoricalAccuracy(), tf.metrics.AUC(), tf.metrics.Precision(), tf.metrics.Recall()]
 
     with strategy_scope:
         model = build_model()
@@ -272,7 +279,7 @@ def train():
         model.compile(
             optimizer=get_optimizer(),
             loss=[CategoricalCrossentropyIsExplicitOnly()],
-            metrics=tf.metrics.CategoricalAccuracy()
+            metrics=CategoricalAccuracyIsExplicitOnly()
             # loss={
             #     'binary_explicit_output': BinaryCrossentropyForExplicitOnly(),
             #     'binary_suggestive_and_explicit_output': BinaryCrossentropyForExplicitAndSuggestive(),
