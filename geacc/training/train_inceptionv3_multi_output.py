@@ -92,7 +92,7 @@ def load_datasets():
         dtype=HPARAMS['dtype'],
         drop_remainder=HPARAMS['enable_xla'],
         # tf_data_experimental_slack=False,
-        training_dataset_cache=True
+        training_dataset_cache=HPARAMS['enable_cache']
     )
 
     validate_input_dataset = image_preprocessing.input_fn(
