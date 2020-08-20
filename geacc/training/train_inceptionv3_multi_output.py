@@ -181,9 +181,15 @@ def init_callbacks():
 
 class BinaryCrossentropyIsExplicitOnly(tf.keras.losses.BinaryCrossentropy):
     def call(self, y_true, y_pred):
+        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
+        return super().call(y_true, y_pred)
+
+
+class BinaryCrossentropyIsExplicitAndSuggestive(tf.keras.losses.BinaryCrossentropy):
+    def call(self, y_true, y_pred):
         # tf.print(">>>>>> Loss BEFORE <<<<<<")
         # tf.print(y_true)
-        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
+        y_true = tf.map_fn(fn=lambda x: 1 - x[..., :1], elems=y_true)
         # tf.print(">>>>>> Loss AFTER <<<<<<")
         # tf.print(y_true)
         return super().call(y_true, y_pred)
@@ -191,9 +197,15 @@ class BinaryCrossentropyIsExplicitOnly(tf.keras.losses.BinaryCrossentropy):
 
 class BinaryAccuracyIsExplicitOnly(tf.metrics.BinaryAccuracy):
     def update_state(self, y_true, y_pred, sample_weight=None):
+        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
+        return super().update_state(y_true, y_pred, sample_weight)
+
+
+class BinaryAccuracyIsExplicitAndSuggestive(tf.metrics.BinaryAccuracy):
+    def update_state(self, y_true, y_pred, sample_weight=None):
         # tf.print(">>>>>> Metric BEFORE <<<<<<")
         # tf.print(y_true)
-        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
+        y_true = tf.map_fn(fn=lambda x: 1 - x[..., :1], elems=y_true)
         # tf.print(">>>>>> Metric AFTER <<<<<<")
         # tf.print(y_true)
         return super().update_state(y_true, y_pred, sample_weight)
@@ -208,12 +220,6 @@ class CategoricalAccuracyIsExplicitOnly(tf.metrics.CategoricalAccuracy):
 class CategoricalCrossentropyIsExplicitOnly(tf.keras.losses.CategoricalCrossentropy):
     def call(self, y_true, y_pred):
         y_true = tf.one_hot(tf.map_fn(fn=lambda x: x[1], elems=tf.cast(y_true, tf.int32)), depth=2, dtype=tf.float32)
-        return super().call(y_true, y_pred)
-
-
-class BinaryCrossentropyIsExplicitAndSuggestive(tf.keras.losses.BinaryCrossentropy):
-    def call(self, y_true, y_pred):
-        # Modify input here
         return super().call(y_true, y_pred)
 
 
@@ -242,8 +248,8 @@ def build_model():
 
     output_binary_explicit_only = tf.keras.layers.Dense(
         units=1, activation='sigmoid', name='binary_explicit_only_output')(x)
-    # output_binary_explicit_and_suggestive = tf.keras.layers.Dense(
-    #     units=1, activation='sigmoid', name='binary_explicit_and_suggestive_output')(x)
+    output_binary_explicit_and_suggestive = tf.keras.layers.Dense(
+        units=1, activation='sigmoid', name='binary_explicit_and_suggestive_output')(x)
 
     # output_binary_explicit_only = tf.keras.layers.Lambda(
     #     lambda x: x[..., 1:2])(output)  # is explicit
@@ -251,7 +257,7 @@ def build_model():
     #     lambda x: 1 - x[..., :1])(output)  # is not benign
 
     model = tf.keras.models.Model(inputs=pretrained_model.input, outputs=[
-                                  output_binary_explicit_only  # ,output_binary_explicit_and_suggestive
+                                  output_binary_explicit_only, output_binary_explicit_and_suggestive
                                   ])
 
     # for layer in model.layers:
@@ -285,20 +291,20 @@ def train():
 
         model.compile(
             optimizer=get_optimizer(),
-            loss=[BinaryCrossentropyIsExplicitOnly()],
-            metrics=BinaryAccuracyIsExplicitOnly()
-            # loss={
-            #     'binary_explicit_output': BinaryCrossentropyForExplicitOnly(),
-            #     'binary_suggestive_and_explicit_output': BinaryCrossentropyForExplicitAndSuggestive(),
-            #     'multi_class_output': 'categorical_crossentropy'},
+            loss={
+                'binary_explicit_only_output': BinaryCrossentropyIsExplicitOnly(),
+                'binary_explicit_and_suggestive_output': BinaryCrossentropyIsExplicitAndSuggestive(),
+                # 'multi_class_output': 'categorical_crossentropy'
+            },
             # loss_weights={
-            #     'binary_explicit_output': 1.,
+            #     'binary_explicit_only_output': 1.,
             #     'binary_suggestive_and_explicit_output': 1.,
             #     'multi_class_output': 1.},
-            # metrics={
-            #     'binary_explicit_output': metrics_set,
-            #     'binary_suggestive_and_explicit_output': metrics_set,
-            #     'multi_class_output': metrics_set}
+            metrics={
+                'binary_explicit_only_output': BinaryAccuracyIsExplicitOnly(),
+                'binary_explicit_and_suggestive_output': BinaryAccuracyIsExplicitAndSuggestive(),
+                # 'multi_class_output': metrics_set
+            }
         )
 
     print('Starting training')
