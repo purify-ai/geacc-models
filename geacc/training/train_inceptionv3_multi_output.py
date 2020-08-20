@@ -310,7 +310,7 @@ def train():
         validation_data=validate_input_dataset,
         validation_steps=steps_validate,
         callbacks=init_callbacks(),
-        class_weight={0: 1, 1: 2, 2: 1}
+        # class_weight={0: 1, 1: 2, 2: 1}
         # verbose=2
     )
 
