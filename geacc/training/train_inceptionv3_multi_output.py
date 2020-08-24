@@ -179,48 +179,46 @@ def init_callbacks():
     return use_callbacks
 
 
-class BinaryCrossentropyIsExplicitOnly(tf.keras.losses.BinaryCrossentropy):
-    def call(self, y_true, y_pred):
-        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
-        return super().call(y_true, y_pred)
+# class BinaryCrossentropyIsExplicitOnly(tf.keras.losses.BinaryCrossentropy):
+#     def call(self, y_true, y_pred):
+#         y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
+#         return super().call(y_true, y_pred)
 
 
-class BinaryCrossentropyIsExplicitAndSuggestive(tf.keras.losses.BinaryCrossentropy):
-    def call(self, y_true, y_pred):
-        # tf.print(">>>>>> Loss BEFORE <<<<<<")
-        # tf.print(y_true)
-        y_true = tf.map_fn(fn=lambda x: 1 - x[..., :1], elems=y_true)
-        # tf.print(">>>>>> Loss AFTER <<<<<<")
-        # tf.print(y_true)
-        return super().call(y_true, y_pred)
+# class BinaryCrossentropyIsExplicitAndSuggestive(tf.keras.losses.BinaryCrossentropy):
+#     def call(self, y_true, y_pred):
+#         y_true = tf.map_fn(fn=lambda x: 1 - x[..., :1], elems=y_true)
+#         return super().call(y_true, y_pred)
 
 
-class BinaryAccuracyIsExplicitOnly(tf.metrics.BinaryAccuracy):
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
-        return super().update_state(y_true, y_pred, sample_weight)
+# class BinaryAccuracyIsExplicitOnly(tf.metrics.BinaryAccuracy):
+#     def update_state(self, y_true, y_pred, sample_weight=None):
+#         y_true = tf.map_fn(fn=lambda x: x[..., 1:2], elems=y_true)
+#         return super().update_state(y_true, y_pred, sample_weight)
 
 
-class BinaryAccuracyIsExplicitAndSuggestive(tf.metrics.BinaryAccuracy):
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        # tf.print(">>>>>> Metric BEFORE <<<<<<")
-        # tf.print(y_true)
-        y_true = tf.map_fn(fn=lambda x: 1 - x[..., :1], elems=y_true)
-        # tf.print(">>>>>> Metric AFTER <<<<<<")
-        # tf.print(y_true)
-        return super().update_state(y_true, y_pred, sample_weight)
+# class BinaryAccuracyIsExplicitAndSuggestive(tf.metrics.BinaryAccuracy):
+#     def update_state(self, y_true, y_pred, sample_weight=None):
+#         y_true = tf.map_fn(fn=lambda x: 1 - x[..., :1], elems=y_true)
+#         return super().update_state(y_true, y_pred, sample_weight)
 
 
-class CategoricalAccuracyIsExplicitOnly(tf.metrics.CategoricalAccuracy):
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        y_true = tf.one_hot(tf.map_fn(fn=lambda x: x[1], elems=tf.cast(y_true, tf.int32)), depth=2, dtype=tf.float32)
-        return super().update_state(y_true, y_pred, sample_weight)
+# class CategoricalAccuracyIsExplicitOnly(tf.metrics.CategoricalAccuracy):
+#     def update_state(self, y_true, y_pred, sample_weight=None):
+#         y_true = tf.one_hot(tf.map_fn(fn=lambda x: x[1], elems=tf.cast(y_true, tf.int32)), depth=2, dtype=tf.float32)
+#         return super().update_state(y_true, y_pred, sample_weight)
 
 
-class CategoricalCrossentropyIsExplicitOnly(tf.keras.losses.CategoricalCrossentropy):
-    def call(self, y_true, y_pred):
-        y_true = tf.one_hot(tf.map_fn(fn=lambda x: x[1], elems=tf.cast(y_true, tf.int32)), depth=2, dtype=tf.float32)
-        return super().call(y_true, y_pred)
+# class CategoricalCrossentropyIsExplicitOnly(tf.keras.losses.CategoricalCrossentropy):
+#     def call(self, y_true, y_pred):
+#         y_true = tf.one_hot(tf.map_fn(fn=lambda x: x[1], elems=tf.cast(y_true, tf.int32)), depth=2, dtype=tf.float32)
+#         return super().call(y_true, y_pred)
+
+
+def binarize_labels(y):
+    y_explicit_only = y[..., 1:2]
+    y_explicit_and_suggestive = 1 - y[..., :1]
+    return {'explicit_only_output': y_explicit_only, 'explicit_and_suggestive_output': y_explicit_and_suggestive}
 
 
 def build_model():
@@ -243,13 +241,10 @@ def build_model():
     # output = tf.keras.layers.Dense(
     #     units=len(HPARAMS['class_names']), activation='softmax', name='predictions')(x)
 
-    # output_binary_explicit_only = tf.keras.layers.Dense(
-    #     units=2, activation='softmax', name='binary_explicit_only_output')(x)
-
     output_binary_explicit_only = tf.keras.layers.Dense(
-        units=1, activation='sigmoid', name='binary_explicit_only_output')(x)
+        units=1, activation='sigmoid', name='explicit_only_output')(x)
     output_binary_explicit_and_suggestive = tf.keras.layers.Dense(
-        units=1, activation='sigmoid', name='binary_explicit_and_suggestive_output')(x)
+        units=1, activation='sigmoid', name='explicit_and_suggestive_output')(x)
 
     # output_binary_explicit_only = tf.keras.layers.Lambda(
     #     lambda x: x[..., 1:2])(output)  # is explicit
@@ -282,9 +277,6 @@ def train():
     # Get training/validation datasets
     train_input_dataset, validate_input_dataset, steps_train, steps_validate = load_datasets()
 
-    # Set of metrics to monitor for each output
-    # metrics_set = [tf.metrics.CategoricalAccuracy(), tf.metrics.AUC(), tf.metrics.Precision(), tf.metrics.Recall()]
-
     with strategy_scope:
         model = build_model()
         model.summary()
@@ -292,17 +284,17 @@ def train():
         model.compile(
             optimizer=get_optimizer(),
             loss={
-                'binary_explicit_only_output': BinaryCrossentropyIsExplicitOnly(),
-                'binary_explicit_and_suggestive_output': BinaryCrossentropyIsExplicitAndSuggestive(),
+                'explicit_only_output': tf.keras.losses.BinaryCrossentropy(),
+                'explicit_and_suggestive_output': tf.keras.losses.BinaryCrossentropy(),
                 # 'multi_class_output': 'categorical_crossentropy'
             },
             # loss_weights={
-            #     'binary_explicit_only_output': 1.,
+            #     'explicit_only_output': 1.,
             #     'binary_suggestive_and_explicit_output': 1.,
             #     'multi_class_output': 1.},
             metrics={
-                'binary_explicit_only_output': BinaryAccuracyIsExplicitOnly(),
-                'binary_explicit_and_suggestive_output': BinaryAccuracyIsExplicitAndSuggestive(),
+                'explicit_only_output': tf.metrics.BinaryAccuracy(),
+                'explicit_and_suggestive_output': tf.metrics.BinaryAccuracy(),
                 # 'multi_class_output': metrics_set
             }
         )
@@ -310,10 +302,10 @@ def train():
     print('Starting training')
 
     model.fit(
-        train_input_dataset,
+        train_input_dataset.map(lambda x, y: [x, binarize_labels(y)]),
         steps_per_epoch=steps_train,
         epochs=HPARAMS['total_epochs'],
-        validation_data=validate_input_dataset,
+        validation_data=validate_input_dataset.map(lambda x, y: [x, binarize_labels(y)]),
         validation_steps=steps_validate,
         callbacks=init_callbacks(),
         # class_weight={0: 1, 1: 2, 2: 1}
