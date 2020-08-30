@@ -108,7 +108,8 @@ test_input_dataset = image_preprocessing.input_fn(
     filenames   = get_filenames(data_subset="test"),
     batch_size  = HPARAMS['batch_size'],
     num_epochs  = HPARAMS['total_epochs'],
-    parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
+    parse_record_fn = image_preprocessing.get_parse_record_fn(
+        one_hot_encoding_class_num=OUTPUT_CLASSES_NUM, binarize_label_names=HPARAMS['binarized_label_names']),
     dtype=HPARAMS['dtype'],
     drop_remainder=True,
 )
@@ -124,45 +125,48 @@ predictions = model.predict(
     steps=steps_test
 )
 
-# Calculate true labels
-true_labels = []
-test_labels = test_input_dataset.map(lambda x, y: tf.dtypes.cast(y, tf.int8))
-for tf_labels in test_labels:
-    true_labels.extend(tf_labels.numpy())
-true_labels = np.array(true_labels)
+# Multi-output predictions
+predictions_explicit_only = predictions[0]
+predictions_explicit_and_suggestive = predictions[1]
+
+# True labels for test dataset
+test_labels = list(test_input_dataset.batch(HPARAMS['test_image_files']).as_numpy_iterator())
+test_labels_explicit_only = test_labels[0]['explicit_only_output'].flatten()
+test_labels_explicit_and_suggestive = test_labels[0]['explicit_and_suggestive_output'].flatten()
 
 
 # %%
 # Produce confusion matrix
 
 # Convert the predicted classes from arrays to integers.
-pred_class_indices = np.argmax(predictions, axis=1)
-true_class_indices = np.argmax(true_labels, axis=1)
+cfmx_cutoff = 0.6
+pred_class_indices = np.where(predictions_explicit_only.flatten() < cfmx_cutoff, 0, 1)
+true_class_indices = test_labels_explicit_only
 
 # Get the confusion matrix using sklearn.
-cfmx = skmetrics.confusion_matrix(y_true=true_class_indices,  # True class for test-set.
-                                  y_pred=pred_class_indices)  # Predicted class.
+cfmx = skmetrics.confusion_matrix(y_true=pred_class_indices,  # True class for test-set.
+                                  y_pred=true_class_indices)  # Predicted class.
 
-draw_confusion_matrix(cfmx, HPARAMS['class_names'], (4, 3))
+draw_confusion_matrix(cfmx, HPARAMS['class_names'][0:2], (4, 3))
+
 
 # %%
 # PR Curves
-
 pr_data_frames = []
-for i in range(OUTPUT_CLASSES_NUM):
-    #plt.subplots(i, 1)
-    class_true_labels = true_labels[:, i]
-    class_predictions = predictions[:, i]
-    precision, recall, thresholds = skmetrics.precision_recall_curve(class_true_labels, class_predictions)
-    class_average_precision = skmetrics.average_precision_score(class_true_labels, class_predictions)
-    pr_data_frames.append(pd.DataFrame({"Recall": recall, "Precision": precision,
-                                        "Class": f'{HPARAMS["class_names"][i]} class (ap: {class_average_precision:.3f})'}))
 
-# Micro-averaged precision over all classes
-micro_precision, micro_recall, _ = skmetrics.precision_recall_curve(true_labels.ravel(), predictions.ravel())
-micro_average_precision = skmetrics.average_precision_score(true_labels, predictions, average="micro")
-pr_data_frames.append(pd.DataFrame({"Recall": micro_recall, "Precision": micro_precision,
-                                    "Class": f'micro-averaged over all classes (ap: {micro_average_precision:.3f})'}))
+class_true_labels = test_labels_explicit_only
+class_predictions = predictions_explicit_only.flatten()
+precision_1, recall_1, thresholds_1 = skmetrics.precision_recall_curve(class_true_labels, class_predictions)
+average_precision = skmetrics.average_precision_score(class_true_labels, class_predictions)
+pr_data_frames.append(pd.DataFrame({"Recall": recall_1, "Precision": precision_1,
+                                    "Output": f'Explicit only (ap: {average_precision:.3f})'}))
+
+class_true_labels = test_labels_explicit_and_suggestive
+class_predictions = predictions_explicit_and_suggestive.flatten()
+precision_2, recall_2, thresholds_2 = skmetrics.precision_recall_curve(class_true_labels, class_predictions)
+average_precision = skmetrics.average_precision_score(class_true_labels, class_predictions)
+pr_data_frames.append(pd.DataFrame({"Recall": recall_2, "Precision": precision_2,
+                                    "Output": f'Explicit and suggestive (ap: {average_precision:.3f})'}))
 
 pr_data_plot = pd.concat(pr_data_frames)
 
@@ -170,7 +174,8 @@ plt.figure(figsize=(15,14))
 plt.grid()
 plt.title(f'PR curves')
 sns.set_style("dark", {"xtick.major.size": 16, "ytick.major.size": 16})
-sns.lineplot(x="Recall", y="Precision", hue="Class", data=pr_data_plot)
+sns.lineplot(x="Recall", y="Precision", hue="Output", data=pr_data_plot)
+plt.show()
 
 
 # %%
@@ -179,7 +184,8 @@ explainer = GradCAM()
 
 diff_class_indices = true_class_indices - pred_class_indices
 false_indeces = np.argwhere(diff_class_indices != 0)
-test_input_dataset_unbatched = test_input_dataset.unbatch() #.map(lambda x, y: ([x], y))
+test_input_dataset_unbatched = test_input_dataset.unbatch()
+
 i = 0
 for test_record in test_input_dataset_unbatched:
     if diff_class_indices[i] != 0:
@@ -191,16 +197,17 @@ for test_record in test_input_dataset_unbatched:
         explainer.save(grid, "models/geacc-30k/explain/", f"{i}-t{true_class_indices[i]}-p{pred_class_indices[i]}.png")
     i += 1
 
+
 # %%
 # Detailed list of all filenames, predictions and scores
-labels = (test_img_generator.class_indices)
-labels = dict((v, k) for k, v in labels.items())
-predictions_labeled = [labels[k] for k in pred_class_indices]
+# labels = (test_img_generator.class_indices)
+# labels = dict((v, k) for k, v in labels.items())
+# predictions_labeled = [labels[k] for k in pred_class_indices]
 
-pd.set_option('display.max_rows', None)
-cdf = pd.DataFrame({"Filename": test_img_generator.filenames[:len(test_classes)],
-                    "Prediction": predictions_labeled,
-                    "Benign Score": ["{0:.4f}".format(i[0]) for i in predictions],
-                    "Malign Score": ["{0:.4f}".format(i[1]) for i in predictions]})
+# pd.set_option('display.max_rows', None)
+# cdf = pd.DataFrame({"Filename": test_img_generator.filenames[:len(test_classes)],
+#                     "Prediction": predictions_labeled,
+#                     "Benign Score": ["{0:.4f}".format(i[0]) for i in predictions],
+#                     "Malign Score": ["{0:.4f}".format(i[1]) for i in predictions]})
 
-cdf.to_csv(output_path, encoding='utf-8', index=False)
+# cdf.to_csv(output_path, encoding='utf-8', index=False)

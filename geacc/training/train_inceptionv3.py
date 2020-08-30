@@ -19,12 +19,13 @@ import os
 from time import time
 
 import tensorflow as tf
+import numpy as np
+
 from . import image_preprocessing
 from . import distribution_utils
 
 # Consts
 IMG_SIZE = 299
-OUTPUT_CLASSES_NUM = 3
 OUTPUT_PREFIX = "Geacc_InceptionV3_"
 OUTPUT_ID = ""
 TB_SUMMARY = "summary"
@@ -45,6 +46,78 @@ def get_filenames(data_subset):
         raise Exception("TPU requires files stored in Google Cloud Storage (GCS) buckets.")
 
     return filenames
+
+
+def optimize_performance():
+    # Enable XLA
+    if HPARAMS['enable_xla']:
+        tf.config.optimizer.set_jit(True)
+
+    # Use mixed precision when available
+    if HPARAMS['enable_mixed_precision']:
+        if HPARAMS['tpu_address']:
+            policy = 'mixed_bfloat16'
+            dtype = tf.bfloat16
+        elif HPARAMS['gpu_num']:
+            policy = 'mixed_float16'
+            dtype = tf.float16
+        else:
+            policy = 'float32'
+            dtype = tf.float32
+
+        print(f"Setting mixed precision policy to {policy}.")
+        tf.keras.mixed_precision.experimental.set_policy(policy)
+        HPARAMS['mixed_precision_policy'] = policy
+        HPARAMS['dtype'] = dtype
+
+
+def binarize_labels(labels):
+    """Convert multi-class labels (benign, explicit, suggestive) to binary labels:
+        - explicit_only (benign+suggestive vs explicit)
+        - explicit_and_suggestive (benign vs explicit+suggestive)
+    """
+    y_explicit_only = labels[..., 1:2]
+    y_explicit_and_suggestive = 1 - labels[..., :1]  # not benign
+    return {'explicit_only_output': y_explicit_only, 'explicit_and_suggestive_output': y_explicit_and_suggestive}
+
+
+def load_datasets():
+    '''Prepare images for training.'''
+    class_names = HPARAMS['class_names']
+    print(f"Class names: {class_names}")
+
+    steps_train = HPARAMS['train_image_files'] // HPARAMS['batch_size']
+    print(f"Steps on train: {steps_train}")
+
+    steps_validate = HPARAMS['validate_image_files'] // HPARAMS['batch_size']
+    print(f"Steps on validation: {steps_validate}")
+
+    train_input_dataset = image_preprocessing.input_fn(
+        is_training = True,
+        filenames   = get_filenames(data_subset="train"),
+        batch_size  = HPARAMS['batch_size'],
+        num_epochs  = HPARAMS['total_epochs'],
+        parse_record_fn = image_preprocessing.get_parse_record_fn(
+            one_hot_encoding_class_num=len(class_names), binarize_label_names=HPARAMS['binarized_label_names']),
+        # datasets_num_private_threads=None,
+        dtype=HPARAMS['dtype'],
+        drop_remainder=HPARAMS['enable_xla'],
+        # tf_data_experimental_slack=False,
+        training_dataset_cache=HPARAMS['enable_cache']
+    )
+
+    validate_input_dataset = image_preprocessing.input_fn(
+        is_training = False,
+        filenames   = get_filenames(data_subset="validate"),
+        batch_size  = HPARAMS['batch_size'],
+        num_epochs  = HPARAMS['total_epochs'],
+        parse_record_fn = image_preprocessing.get_parse_record_fn(
+            one_hot_encoding_class_num=len(class_names), binarize_label_names=HPARAMS['binarized_label_names']),
+        dtype=HPARAMS['dtype'],
+        drop_remainder=HPARAMS['enable_xla'],
+    )
+
+    return [train_input_dataset, validate_input_dataset, steps_train, steps_validate]
 
 
 def step_decay_schedule(epoch):
@@ -93,10 +166,6 @@ def init_callbacks():
     checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_file, monitor='val_loss', verbose=1, save_best_only=False)
     use_callbacks.append(checkpointer)
 
-    # Early stopping
-    # early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10)
-    # use_callbacks.append(early_stop)
-
     # learning rate schedule
     if HPARAMS['optimizer'] == 'sgd':
         lr_scheduler = tf.keras.callbacks.LearningRateScheduler(step_decay_schedule)
@@ -134,82 +203,17 @@ def build_model():
         layer.trainable = False
 
     x = pretrained_model.output
-    output_tensor = tf.keras.layers.Dense(OUTPUT_CLASSES_NUM, activation='softmax', name='predictions')(x)
-    model = tf.keras.models.Model(inputs=pretrained_model.input, outputs=output_tensor)
+
+    output_binary_explicit_only = tf.keras.layers.Dense(
+        units=1, activation='sigmoid', name=HPARAMS['binarized_label_names'][0])(x)
+    output_binary_explicit_and_suggestive = tf.keras.layers.Dense(
+        units=1, activation='sigmoid', name=HPARAMS['binarized_label_names'][1])(x)
+
+    model = tf.keras.models.Model(inputs=pretrained_model.input, outputs=[
+                                  output_binary_explicit_only, output_binary_explicit_and_suggestive
+                                  ])
 
     return model
-
-
-def optimize_performance():
-    # Enable XLA
-    if HPARAMS['enable_xla']:
-        tf.config.optimizer.set_jit(True)
-
-    # Use mixed precision when available
-    if HPARAMS['enable_mixed_precision']:
-        if HPARAMS['tpu_address']:
-            policy = 'mixed_bfloat16'
-            dtype = tf.bfloat16
-        elif HPARAMS['gpu_num']:
-            policy = 'mixed_float16'
-            dtype = tf.float16
-        else:
-            policy = 'float32'
-            dtype = tf.float32
-
-        print(f"Setting mixed precision policy to {policy}.")
-        tf.keras.mixed_precision.experimental.set_policy(policy)
-        HPARAMS['mixed_precision_policy'] = policy
-        HPARAMS['dtype'] = dtype
-
-
-def load_datasets():
-    '''Prepare images for training.'''
-    train_input_dataset = image_preprocessing.input_fn(
-        is_training = True,
-        filenames   = get_filenames(data_subset="train"),
-        batch_size  = HPARAMS['batch_size'],
-        num_epochs  = HPARAMS['total_epochs'],
-        parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
-        # datasets_num_private_threads=None,
-        dtype=HPARAMS['dtype'],
-        drop_remainder=HPARAMS['enable_xla'],
-        # tf_data_experimental_slack=False,
-        # training_dataset_cache=False,
-    )
-
-    validate_input_dataset = image_preprocessing.input_fn(
-        is_training = False,
-        filenames   = get_filenames(data_subset="validate"),
-        batch_size  = HPARAMS['batch_size'],
-        num_epochs  = HPARAMS['total_epochs'],
-        parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
-        dtype=HPARAMS['dtype'],
-        drop_remainder=HPARAMS['enable_xla'],
-    )
-
-    class_names = HPARAMS['class_names']
-    print(f"Class names: {class_names}")
-
-    steps_train = HPARAMS['train_image_files'] // HPARAMS['batch_size']
-    print(f"Steps on train: {steps_train}")
-
-    steps_validate = HPARAMS['validate_image_files'] // HPARAMS['batch_size']
-    print(f"Steps on validation: {steps_validate}")
-
-    return [train_input_dataset, validate_input_dataset, steps_train, steps_validate]
-
-
-def load_checkpoint(checkpoint_file, model):
-    if os.path.exists(checkpoint_file):
-        print("Resuming from checkpoint: ", checkpoint_file)
-        model.load_weights(checkpoint_file)
-
-        # Finding the epoch index from which we are resuming
-        # initial_epoch = get_init_epoch(checkpoint_path)
-
-        # Calculating the correct value of count
-        # count = initial_epoch*batches_per_epoch
 
 
 def train():
@@ -233,8 +237,14 @@ def train():
 
         model.compile(
             optimizer=get_optimizer(),
-            loss=tf.losses.CategoricalCrossentropy(),
-            metrics=[tf.metrics.CategoricalAccuracy(), tf.metrics.AUC(), tf.metrics.Precision(), tf.metrics.Recall()]
+            loss={
+                HPARAMS['binarized_label_names'][0]: tf.keras.losses.BinaryCrossentropy(),
+                HPARAMS['binarized_label_names'][1]: tf.keras.losses.BinaryCrossentropy(),
+            },
+            metrics={
+                HPARAMS['binarized_label_names'][0]: tf.metrics.BinaryAccuracy(),
+                HPARAMS['binarized_label_names'][1]: tf.metrics.BinaryAccuracy(),
+            }
         )
 
     print('Starting training')
@@ -246,6 +256,7 @@ def train():
         validation_data=validate_input_dataset,
         validation_steps=steps_validate,
         callbacks=init_callbacks(),
+        # class_weight={0: 1, 1: 2, 2: 1}
         # verbose=2
     )
 
@@ -265,7 +276,9 @@ def eval(model):
         filenames   = get_filenames(data_subset="test"),
         batch_size  = HPARAMS['batch_size'],
         num_epochs  = HPARAMS['total_epochs'],
-        parse_record_fn = image_preprocessing.get_parse_record_fn(one_hot_encoding_class_num=OUTPUT_CLASSES_NUM),
+        parse_record_fn = image_preprocessing.get_parse_record_fn(
+            one_hot_encoding_class_num=len(HPARAMS['class_names']),
+            binarize_label_names=HPARAMS['binarized_label_names']),
         dtype=HPARAMS['dtype'],
         drop_remainder=HPARAMS['enable_xla'],
     )

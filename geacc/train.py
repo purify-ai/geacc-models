@@ -6,23 +6,25 @@ import tensorflow as tf
 
 HPARAMS = {
     # Training hyperparameters
-    'optimizer':        'adam',  # 'sgd' or 'adam'
-    'momentum':         0.9,     # for SGD
-    'learning_rate':    0.0005,   # for Adam
+    'optimizer':        'sgd',  # 'sgd' or 'adam'
+    'momentum':         0.9,    # for SGD
+    'learning_rate':    0.0005, # for Adam
     'batch_size':       128,
-    'total_epochs':     30,
-    'frozen_layer_num': 168,
+    'total_epochs':     50,
+    'frozen_layer_num': 0,      # 168 for fine tuning
 
     # Other params
     'tpu_address':              False,
     'gpu_num':                  0,
     'enable_xla':               False,
+    'enable_cache':             False,
     'enable_mixed_precision':   False,
     'dtype':                    tf.float32,
     'distribution_strategy':    'off',
 
     # Dataset params. TODO: move to dataset.info
     'class_names':              ['benign', 'explicit', 'suggestive'],
+    'binarized_label_names':    ['explicit_only', 'explicit_and_suggestive'],
     'train_image_files':        8000 * 3,
     'validate_image_files':     1000 * 3,
     'test_image_files':         1000 * 3,

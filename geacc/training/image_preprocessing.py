@@ -92,6 +92,13 @@ def process_record_dataset(dataset,
     dataset = dataset.map(
         lambda value: parse_record_fn(value, is_training, dtype),
         num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    # if binarize_fn:
+    #     # Binarize labels
+    #     dataset = dataset.map(
+    #         lambda x, y: [x, binarize_fn(y)],
+    #         num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
     dataset = dataset.batch(batch_size, drop_remainder=drop_remainder)
 
     # Operations between the final prefetch and the get_next call to the iterator
@@ -211,7 +218,7 @@ def parse_record(raw_record, is_training, dtype):
     return image, label
 
 
-def get_parse_record_fn(use_keras_image_data_format=False, one_hot_encoding_class_num=0):
+def get_parse_record_fn(use_keras_image_data_format=False, one_hot_encoding_class_num=0, binarize_label_names=None):
     """Get a function for parsing the records, accounting for image format.
 
     This is useful by handling different types of Keras models. For instance,
@@ -227,6 +234,10 @@ def get_parse_record_fn(use_keras_image_data_format=False, one_hot_encoding_clas
         If True, the image format matches tf.keras.backend.image_data_format().
       one_hot_encoding_class_num: If an integer is greater than 0, labels will
         be encoded using one-hot (dense) encoding instead of sparse.
+      binarize_label_names: Convert multi-class labels to binary labels using
+        provided names, e.g.:
+        - explicit_only (benign+suggestive vs explicit)
+        - explicit_and_suggestive (benign vs explicit+suggestive)
 
     Returns:
       Function to use for parsing the records.
@@ -240,6 +251,13 @@ def get_parse_record_fn(use_keras_image_data_format=False, one_hot_encoding_clas
 
         if one_hot_encoding_class_num:
             label = tf.one_hot(tf.cast(label, tf.int32), one_hot_encoding_class_num)[0]
+
+            if binarize_label_names:
+                # Binarize labels
+                explicit_only = label[1]
+                explicit_and_suggestive = 1 - label[0]  # not benign
+                label = {binarize_label_names[0]: explicit_only,
+                         binarize_label_names[1]: explicit_and_suggestive}
 
         return image, label
     return parse_record_fn
