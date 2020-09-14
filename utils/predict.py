@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2019 Purify Foundation
 #
@@ -18,38 +18,59 @@ import sys
 import os
 import argparse
 import datetime
-import numpy as np
 import pandas as pd
-from tensorflow.keras import models
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
-img_size = 224 # img width and height
-model = 0
-result_columns = ['Filename', 'Prediction', 'Latency (ms)', 'Benign Score', 'Malign Score']
+from geacc.training.image_preprocessing import preprocess_image
+import tensorflow as tf
 
-def load_image(img_path):
-    img = image.load_img(img_path,
-                interpolation = 'lanczos',
-                target_size = (img_size, img_size))
-    img_tensor = image.img_to_array(img)                    # (height, width, channels)
-    img_tensor = np.expand_dims(img_tensor, axis=0)         # (1, height, width, channels), add a dimension because the model expects this shape: (batch_size, height, width, channels)
-    img_tensor = preprocess_input(img_tensor)               # encode to match the expected range of values
-    return img_tensor
+INPUT_IMG_SIZE = 299  # img width and height
+NUM_CHANNELS = 3
+model = None
+result_columns = ['Filename', 'Latency (ms)', 'Explicit Only', 'Explicit and Suggestive']
+
+
+def _process_image(filename):
+    """Process a single image file.
+
+    Args:
+      filename: string, path to an image file e.g., '/path/to/example.JPG'.
+      coder: instance of ImageCoder to provide TensorFlow image coding utils.
+    Returns:
+      image_buffer: string, JPEG encoding of RGB image.
+      height: integer, image height in pixels.
+      width: integer, image width in pixels.
+    """
+    # Read the image file.
+    with tf.io.gfile.GFile(filename, 'rb') as f:
+        image_data = f.read()
+
+    if not tf.io.is_jpeg(image_data):
+        raise Exception("Unsupported image type. Skipping.")
+
+    image = preprocess_image(
+        image_buffer=image_data,
+        output_height=INPUT_IMG_SIZE,
+        output_width=INPUT_IMG_SIZE,
+        num_channels=NUM_CHANNELS,
+        is_training=False)
+
+    return image
+
 
 def predict_image(img_path):
     timer_start = datetime.datetime.now()
 
-    image = load_image(img_path)
+    image = _process_image(img_path)
+    image = tf.expand_dims(image, axis=0)
     predictions = model.predict(image)
-    
+
     timer_elapsed = int(round((datetime.datetime.now() - timer_start).microseconds / 1000))
 
-    return [img_path, 
-            "benign" if predictions[0][0] > predictions[0][1] else "malign", # predicted class with 0.5 cutoff
-            timer_elapsed, 
-            "{0:.4f}".format(predictions[0][0]), # benign score
-            "{0:.4f}".format(predictions[0][1])] # malign score
+    return [img_path,
+            timer_elapsed,
+            "%.4f" % predictions[0][0],  # explicit only
+            "%.4f" % predictions[1][0]]  # explicit and suggestive
+
 
 def main(argv):
     global model
@@ -63,8 +84,8 @@ def main(argv):
                         help="Optional. If specified, results will be saved to CSV file instead of stdout")
     args = parser.parse_args()
 
-    ### Load model
-    model = models.load_model(args.model_path)
+    # Load model
+    model = tf.keras.models.load_model(args.model_path)
 
     if (os.path.isfile(args.input_path)):
         predict_res = predict_image(args.input_path)
@@ -81,6 +102,7 @@ def main(argv):
         pd.DataFrame(results, columns=result_columns).to_csv(args.csv_path, encoding='utf-8', index=False)
     else:
         print(pd.DataFrame(results, columns=result_columns).to_string())
+
 
 if __name__ == "__main__":
     main(sys.argv)

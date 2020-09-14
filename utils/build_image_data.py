@@ -174,7 +174,7 @@ def _process_image(filename, coder):
         image_data = f.read()
 
     if not tf.io.is_jpeg(image_data):
-        raise Exception(f"Only JPEG input is supported. Skipping non-JPEG file.")
+        raise Exception("Only JPEG input is supported. Skipping non-JPEG file.")
 
     # Decode the RGB JPEG.
     image = coder.decode_jpeg(image_data)
@@ -224,8 +224,8 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
         writer = tf.io.TFRecordWriter(output_file)
 
         shard_counter = 0
-        files_in_shard = np.arange(
-            shard_ranges[s], shard_ranges[s + 1], dtype=int)
+        files_in_shard = np.arange(shard_ranges[s], shard_ranges[s + 1], dtype=int)
+
         for i in files_in_shard:
             filename = filenames[i]
             label = labels[i]
@@ -238,8 +238,7 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
                 print('SKIPPED: Unexpected error while decoding %s.' % filename)
                 continue
 
-            example = _convert_to_example(filename, image_buffer, label,
-                                          text, height, width)
+            example = _convert_to_example(filename, image_buffer, label, text, height, width)
             writer.write(example.SerializeToString())
             shard_counter += 1
             counter += 1
@@ -254,6 +253,7 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
               (datetime.now(), thread_index, shard_counter, output_file))
         sys.stdout.flush()
         shard_counter = 0
+
     print('%s [thread %d]: Wrote %d images to %d shards.' %
           (datetime.now(), thread_index, counter, num_files_in_thread))
     sys.stdout.flush()
@@ -336,8 +336,7 @@ def _find_image_files(data_dir, labels_file):
       labels: list of integer; each integer identifies the ground truth.
     """
     print('Determining list of input files and labels from %s.' % data_dir)
-    unique_labels = [l.strip()
-                     for l in tf.io.gfile.GFile(labels_file, 'r').readlines()]
+    unique_labels = [line.strip() for line in tf.io.gfile.GFile(labels_file, 'r').readlines()]
 
     labels = []
     filenames = []

@@ -25,10 +25,11 @@ from geacc.train import HPARAMS
 from geacc.training import image_preprocessing
 from tf_explain.core.grad_cam import GradCAM
 from sklearn import metrics as skmetrics
+from matplotlib.ticker import MultipleLocator
 
 # Hyperparameters
-MODEL_PATH = 'models/geacc-30k/models/Geacc_InceptionV3_1594054432_ep28_vl0.23.tf'
-OUTPUT_PATH = 'models/geacc-30k/predicted.csv'
+MODEL_PATH = 'models/geacc-126k/models/Geacc_InceptionV3_1598916116_final.tf'
+OUTPUT_PATH = 'models/geacc-126k/predicted.csv'
 
 
 def draw_confusion_matrix(confusion_matrix, class_names, figsize=(10, 7), fontsize=14):
@@ -37,7 +38,7 @@ def draw_confusion_matrix(confusion_matrix, class_names, figsize=(10, 7), fontsi
     Arguments
     ---------
     confusion_matrix: numpy.ndarray
-        The numpy.ndarray object returned from a call to sklearn.metrics.confusion_matrix. 
+        The numpy.ndarray object returned from a call to sklearn.metrics.confusion_matrix.
         Similarly constructed ndarrays can also be used.
     class_names: list
         An ordered list of class names, in the order they index the given confusion matrix.
@@ -89,9 +90,6 @@ def get_filenames(data_subset):
         os.path.join(HPARAMS['dataset_path'], '{}-{:05d}-of-{:05d}'.format(data_subset, i, HPARAMS[f'{data_subset}_tfrecord_files']))
             for i in range(HPARAMS[f'{data_subset}_tfrecord_files'])]
 
-    if HPARAMS['tpu_address'] and not distribution_utils.tpu_compatible_files(filenames):
-        raise Exception("TPU requires files stored in Google Cloud Storage (GCS) buckets.")
-
     return filenames
 
 
@@ -99,17 +97,21 @@ def get_filenames(data_subset):
 # Load model
 model = tf.keras.models.load_model(MODEL_PATH)
 
+
 # %%
 OUTPUT_CLASSES_NUM = len(HPARAMS["class_names"])
-HPARAMS['dataset_path'] = 'models/geacc-30k/tfrecord'
+HPARAMS['dataset_path'] = 'models/dataset-bellas-tfrecord'
+HPARAMS['test_image_files'] = 2714
+HPARAMS['test_tfrecord_files'] = 1
 
 test_input_dataset = image_preprocessing.input_fn(
-    is_training = False,
-    filenames   = get_filenames(data_subset="test"),
-    batch_size  = HPARAMS['batch_size'],
-    num_epochs  = HPARAMS['total_epochs'],
-    parse_record_fn = image_preprocessing.get_parse_record_fn(
-        one_hot_encoding_class_num=OUTPUT_CLASSES_NUM, binarize_label_names=HPARAMS['binarized_label_names']),
+    is_training=False,
+    filenames=get_filenames(data_subset="test"),
+    batch_size=HPARAMS['batch_size'],
+    num_epochs=HPARAMS['total_epochs'],
+    parse_record_fn=image_preprocessing.get_parse_record_fn(
+        one_hot_encoding_class_num=OUTPUT_CLASSES_NUM,
+        binarize_label_names=HPARAMS['binarized_label_names']),
     dtype=HPARAMS['dtype'],
     drop_remainder=True,
 )
@@ -129,25 +131,25 @@ predictions = model.predict(
 predictions_explicit_only = predictions[0]
 predictions_explicit_and_suggestive = predictions[1]
 
-# True labels for test dataset
-test_labels = list(test_input_dataset.batch(HPARAMS['test_image_files']).as_numpy_iterator())
-test_labels_explicit_only = test_labels[0]['explicit_only_output'].flatten()
-test_labels_explicit_and_suggestive = test_labels[0]['explicit_and_suggestive_output'].flatten()
+# Load true labels for test dataset
+test_labels = list(test_input_dataset.map(lambda x, y: y).batch(HPARAMS['test_image_files']).as_numpy_iterator())
+test_labels_explicit_only = test_labels[0][HPARAMS['binarized_label_names'][0]].flatten()
+test_labels_explicit_and_suggestive = test_labels[0][HPARAMS['binarized_label_names'][1]].flatten()
 
 
 # %%
 # Produce confusion matrix
 
 # Convert the predicted classes from arrays to integers.
-cfmx_cutoff = 0.6
-pred_class_indices = np.where(predictions_explicit_only.flatten() < cfmx_cutoff, 0, 1)
-true_class_indices = test_labels_explicit_only
+cfmx_cutoff = 0.8
+pred_class_indices = np.where(predictions_explicit_and_suggestive.flatten() < cfmx_cutoff, 0, 1)
+true_class_indices = test_labels_explicit_and_suggestive
 
 # Get the confusion matrix using sklearn.
-cfmx = skmetrics.confusion_matrix(y_true=pred_class_indices,  # True class for test-set.
-                                  y_pred=true_class_indices)  # Predicted class.
+cfmx = skmetrics.confusion_matrix(y_true=true_class_indices,  # True class for test-set.
+                                  y_pred=pred_class_indices)  # Predicted class.
 
-draw_confusion_matrix(cfmx, HPARAMS['class_names'][0:2], (4, 3))
+draw_confusion_matrix(cfmx, ['benign', 's&e'], (4, 3))
 
 
 # %%
@@ -170,11 +172,18 @@ pr_data_frames.append(pd.DataFrame({"Recall": recall_2, "Precision": precision_2
 
 pr_data_plot = pd.concat(pr_data_frames)
 
-plt.figure(figsize=(15,14))
+plt.figure(figsize=(15, 8))
 plt.grid()
-plt.title(f'PR curves')
-sns.set_style("dark", {"xtick.major.size": 16, "ytick.major.size": 16})
-sns.lineplot(x="Recall", y="Precision", hue="Output", data=pr_data_plot)
+plt.title('PR curves')
+sns.set_style("dark")
+ax = sns.lineplot(x="Recall", y="Precision", hue="Output", data=pr_data_plot)
+ax.xaxis.grid(True, which='minor')
+ax.xaxis.set_major_locator(MultipleLocator(0.1))
+ax.xaxis.set_minor_locator(MultipleLocator(0.02))
+ax.yaxis.grid(True, which='minor')
+ax.yaxis.set_major_locator(MultipleLocator(0.1))
+ax.yaxis.set_minor_locator(MultipleLocator(0.02))
+ax.tick_params(which='both', right=True, top=True, labelright=True, labeltop=True)
 plt.show()
 
 
@@ -189,25 +198,12 @@ test_input_dataset_unbatched = test_input_dataset.unbatch()
 i = 0
 for test_record in test_input_dataset_unbatched:
     if diff_class_indices[i] != 0:
-        test_record_label = np.argmax(test_record[1].numpy())
+        test_record_label = np.argmax(test_record[1]['explicit_and_suggestive'].numpy())
         print(f"Image #{i}: Record: {test_record_label} True: {true_class_indices[i]} Predicted: {pred_class_indices[i]}")
 
-        img_data = ([test_record[0].numpy()], test_record[1].numpy())
-        grid = explainer.explain(img_data, model, class_index=pred_class_indices[i])
-        explainer.save(grid, "models/geacc-30k/explain/", f"{i}-t{true_class_indices[i]}-p{pred_class_indices[i]}.png")
+        # img_data = ([test_record[0].numpy()], test_record[1]['explicit_and_suggestive'].numpy())
+        # grid = explainer.explain(img_data, model, class_index=pred_class_indices[i])
+        # explainer.save(grid, "models/dataset-bellas/explain/", f"{i}-t{true_class_indices[i]}-p{pred_class_indices[i]}.png")
+        plt.imshow(test_record[0])
+        plt.show()
     i += 1
-
-
-# %%
-# Detailed list of all filenames, predictions and scores
-# labels = (test_img_generator.class_indices)
-# labels = dict((v, k) for k, v in labels.items())
-# predictions_labeled = [labels[k] for k in pred_class_indices]
-
-# pd.set_option('display.max_rows', None)
-# cdf = pd.DataFrame({"Filename": test_img_generator.filenames[:len(test_classes)],
-#                     "Prediction": predictions_labeled,
-#                     "Benign Score": ["{0:.4f}".format(i[0]) for i in predictions],
-#                     "Malign Score": ["{0:.4f}".format(i[1]) for i in predictions]})
-
-# cdf.to_csv(output_path, encoding='utf-8', index=False)

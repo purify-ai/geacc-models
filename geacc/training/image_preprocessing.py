@@ -16,7 +16,7 @@
 
 Training images are sampled using the optionally provided bounding boxes,
 and subsequently cropped to the sampled bounding box. Images are additionally
-flipped randomly, undergo colour distortion and then resized to the target 
+flipped randomly, undergo colour distortion and then resized to the target
 output size (without aspect-ratio preservation).
 
 Images used during evaluation are resized (with aspect-ratio preservation) and
@@ -92,12 +92,6 @@ def process_record_dataset(dataset,
     dataset = dataset.map(
         lambda value: parse_record_fn(value, is_training, dtype),
         num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-    # if binarize_fn:
-    #     # Binarize labels
-    #     dataset = dataset.map(
-    #         lambda x, y: [x, binarize_fn(y)],
-    #         num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     dataset = dataset.batch(batch_size, drop_remainder=drop_remainder)
 
@@ -468,8 +462,8 @@ def _distort_color(image, thread_id=0):
     return image
 
 
-def preprocess_image(image_buffer, bbox, output_height, output_width,
-                     num_channels, is_training=False):
+def preprocess_image(image_buffer, output_height, output_width,
+                     num_channels, bbox=None, is_training=False):
     """Preprocesses the given image.
 
     Preprocessing includes decoding, cropping, and resizing for both training
@@ -497,7 +491,7 @@ def preprocess_image(image_buffer, bbox, output_height, output_width,
         image = _distort_image(image, output_height,
                                output_width, bbox, num_channels)
     else:
-        # For validation, we want to decode, resize, then just crop the middle.
+        # For validation, we want to crop the middle and then resize.
         image = _eval_image(image, output_height, output_width)
 
     # Finally, rescale to [-1,1] instead of [0, 1)
